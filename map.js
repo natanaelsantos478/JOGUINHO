@@ -1,0 +1,317 @@
+// ═══════════════════════════════════════════════════════════
+//  map.js — Leaflet map, country layers, unit markers
+// ═══════════════════════════════════════════════════════════
+
+let _map = null;
+let _countriesLayer = null;
+let _unitsLayer = null;
+let _structuresLayer = null;
+let _routeLines = [];
+let _geojsonData = null;
+// Unit selection state — shared via window for cross-module access
+// Use window.window._selectedUnitId to read/write from any module
+
+// ── Initialise main game map ───────────────────────────────
+async function initMap(savedView) {
+  const center = savedView ? [savedView.lat, savedView.lng] : [20, 0];
+  const zoom   = savedView ? savedView.zoom : 3;
+
+  _map = L.map('map', {
+    center,
+    zoom,
+    minZoom: 2,
+    maxZoom: 12,
+    zoomControl: true,
+  });
+
+  // Dark CartoDB tiles
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    attribution: '',
+    subdomains: 'abcd',
+    maxZoom: 20,
+  }).addTo(_map);
+
+  // Layer groups
+  _countriesLayer  = L.layerGroup().addTo(_map);
+  _unitsLayer      = L.layerGroup().addTo(_map);
+  _structuresLayer = L.layerGroup().addTo(_map);
+
+  // Load GeoJSON
+  const loaded = await _loadGeoJSON();
+  if (!loaded) return false;
+
+  // Map click — move selected unit or deselect
+  _map.on('click', (e) => {
+    if (window._selectedUnitId) {
+      _handleMapClickForMove(e.latlng.lat, e.latlng.lng);
+    } else {
+      window._selectedUnitId = null;
+      renderPanelForTab('military');
+    }
+  });
+
+  // Track view for save
+  _map.on('moveend zoomend', () => {
+    if (window.GS) {
+      const c = _map.getCenter();
+      GS.map_view = { lat: c.lat, lng: c.lng, zoom: _map.getZoom() };
+    }
+  });
+
+  return true;
+}
+
+// ── Country selection map (modal) ──────────────────────────
+let _selectMap = null;
+let _selectLayer = null;
+
+async function initSelectMap() {
+  if (_selectMap) return; // already inited
+  _selectMap = L.map('country-select-map', {
+    center: [20, 0], zoom: 2, minZoom: 1, maxZoom: 5,
+    zoomControl: true,
+  });
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    attribution: '', subdomains: 'abcd', maxZoom: 20,
+  }).addTo(_selectMap);
+
+  _selectLayer = L.layerGroup().addTo(_selectMap);
+  await _loadGeoJSON();
+  if (_geojsonData) {
+    L.geoJSON(_geojsonData, {
+      style: { color: '#1e2535', weight: 1, fillColor: '#1a3a6a', fillOpacity: 0.2 },
+      onEachFeature(feature, layer) {
+        layer.on('click', () => {
+          const name = feature.properties.ADMIN || feature.properties.name;
+          selectCountryByName(name);
+        });
+        layer.on('mouseover', function() { this.setStyle({ fillOpacity: 0.4 }); });
+        layer.on('mouseout',  function() { this.setStyle({ fillOpacity: 0.2 }); });
+      }
+    }).addTo(_selectLayer);
+  }
+  setTimeout(() => _selectMap.invalidateSize(), 100);
+}
+
+// ── GeoJSON loading ────────────────────────────────────────
+async function _loadGeoJSON() {
+  if (_geojsonData) return true;
+  try {
+    const res = await fetch('/IMAGES/countries.geojson');
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    _geojsonData = await res.json();
+    return true;
+  } catch (e) {
+    console.warn('GeoJSON load failed:', e.message);
+    document.getElementById('loading-screen').style.display = 'none';
+    document.getElementById('geojson-missing').style.display = 'flex';
+    return false;
+  }
+}
+
+// ── Country layer rendering ────────────────────────────────
+function renderCountries(state) {
+  if (!_geojsonData || !_map) return;
+  _countriesLayer.clearLayers();
+
+  L.geoJSON(_geojsonData, {
+    style(feature) {
+      const name = feature.properties.ADMIN || feature.properties.name || '';
+      return {
+        color:        '#1e2535',
+        weight:       1,
+        fillColor:    getCountryFillColor(name, state),
+        fillOpacity:  getCountryFillOpacity(name, state),
+      };
+    },
+    onEachFeature(feature, layer) {
+      const name = feature.properties.ADMIN || feature.properties.name || '';
+      layer.on('click', (e) => {
+        L.DomEvent.stopPropagation(e);
+        onCountryClick(name, state);
+      });
+      layer.on('mouseover', function(e) {
+        this.setStyle({ weight: 2, color: '#c8a84b' });
+        this.bindTooltip(`<div style="font-family:'Cinzel',serif;font-size:0.8rem;color:#c8a84b;background:#0f1318;border:1px solid #1e2535;padding:4px 8px;border-radius:4px;">${name}</div>`, { sticky: true, className: '' }).openTooltip();
+      });
+      layer.on('mouseout', function() {
+        this.setStyle({ weight: 1, color: '#1e2535' });
+        this.closeTooltip();
+      });
+    }
+  }).addTo(_countriesLayer);
+}
+
+function onCountryClick(name, state) {
+  if (window._selectedUnitId) return; // in move mode
+  window._selectedCountry = name;
+  renderPanelForTab('info');
+  switchTab('info');
+}
+
+// ── Unit markers ───────────────────────────────────────────
+function renderUnits(state) {
+  if (!_map) return;
+  _unitsLayer.clearLayers();
+
+  (state.units || []).forEach(unit => {
+    const isPlayer = unit.country === state.player_country;
+    const icon = createUnitIconSync(unit.type, isPlayer);
+
+    const marker = L.marker([unit.lat, unit.lng], {
+      icon,
+      title: unit.name,
+      zIndexOffset: isPlayer ? 1000 : 0,
+    });
+
+    marker.on('click', (e) => {
+      L.DomEvent.stopPropagation(e);
+      onUnitClick(unit.id, state);
+    });
+
+    marker.bindTooltip(_buildUnitTooltip(unit), {
+      className: '',
+      offset: [0, -20],
+    });
+
+    marker.addTo(_unitsLayer);
+    unit._marker = marker;
+  });
+}
+
+function _buildUnitTooltip(unit) {
+  const def = UNIT_DEFS[unit.type];
+  const lvName = levelName(unit.level);
+  return `<div class="unit-tooltip">
+    <div class="unit-tooltip-name">${unit.name}</div>
+    <div>${def ? def.label : unit.type} — ${lvName}</div>
+    <div>❤️ ${Math.round(unit.hp)}%  ⚡ ${Math.round(unit.energy)}%  👥 x${unit.squadSize}</div>
+  </div>`;
+}
+
+function onUnitClick(unitId, state) {
+  const unit = (state.units || []).find(u => u.id === unitId);
+  if (!unit) return;
+  const isPlayer = unit.country === state.player_country;
+
+  if (isPlayer) {
+    if (window._selectedUnitId === unitId) {
+      // Deselect
+      window._selectedUnitId = null;
+      clearRouteLines();
+    } else {
+      window._selectedUnitId = unitId;
+      notify(`${unit.name} selecionado — clique no mapa para mover`, 'info');
+    }
+  }
+  renderPanelForTab('military');
+  switchTab('military');
+}
+
+function _handleMapClickForMove(lat, lng) {
+  if (!window._selectedUnitId) return;
+  const unit = (window.GS.units || []).find(u => u.id === window._selectedUnitId);
+  if (!unit) { window._selectedUnitId = null; return; }
+
+  const result = moveUnit(unit, lat, lng);
+  if (result.ok) {
+    clearRouteLines();
+    animateUnitMove(unit, lat, lng, () => {
+      renderUnits(window.GS);
+      renderPanelForTab('military');
+      saveGame(window.GS);
+    });
+    notify(`${unit.name} em movimento`, 'info');
+  } else {
+    notify(result.reason, 'error');
+  }
+  window._selectedUnitId = null;
+}
+
+// ── Route animation ────────────────────────────────────────
+function clearRouteLines() {
+  _routeLines.forEach(l => _map.removeLayer(l));
+  _routeLines = [];
+}
+
+function drawRouteLine(fromLat, fromLng, toLat, toLng) {
+  const line = L.polyline([[fromLat, fromLng], [toLat, toLng]], {
+    color: '#c8a84b', weight: 2, dashArray: '6 4', opacity: 0.7
+  }).addTo(_map);
+  _routeLines.push(line);
+}
+
+function animateUnitMove(unit, destLat, destLng, onDone) {
+  drawRouteLine(unit.lat, unit.lng, destLat, destLng);
+  // Update marker position immediately (Leaflet doesn't animate natively)
+  if (unit._marker) {
+    unit._marker.setLatLng([destLat, destLng]);
+  }
+  setTimeout(() => {
+    clearRouteLines();
+    if (onDone) onDone();
+  }, 800);
+}
+
+// ── Structure markers ──────────────────────────────────────
+function renderStructures(state) {
+  if (!_map) return;
+  _structuresLayer.clearLayers();
+
+  (state.structures || []).forEach(s => {
+    if (!s.lat || !s.lng) return;
+    const icon = createStructureIcon(s.type);
+    const marker = L.marker([s.lat, s.lng], { icon });
+    marker.bindTooltip(`<div style="background:#0f1318;border:1px solid #1e2535;padding:4px 8px;border-radius:4px;font-size:0.8rem;color:#ccc9bc;">${s.emoji} ${s.label}${s.complete ? '' : ` (${s.turnsLeft} turnos)`}</div>`, { className: '' });
+    marker.addTo(_structuresLayer);
+  });
+}
+
+// ── Build on map click mode ────────────────────────────────
+let _buildMode = null;
+
+function enterBuildMode(structType) {
+  _buildMode = structType;
+  const def = STRUCTURE_DEFS[structType];
+  notify(`${def.emoji} Clique no mapa para posicionar: ${def.label}`, 'info');
+  _map.once('click', (e) => {
+    if (!_buildMode) return;
+    const type = _buildMode;
+    _buildMode = null;
+    const result = startConstruction(type, window.GS, e.latlng.lat, e.latlng.lng);
+    if (result.ok) {
+      notify(`Construção iniciada: ${result.structure.emoji} ${result.structure.label}`, 'info');
+      renderStructures(window.GS);
+      renderPanelForTab('build');
+      saveGame(window.GS);
+    } else {
+      notify(result.reason, 'error');
+    }
+  });
+}
+
+// ── Fly to country ─────────────────────────────────────────
+function flyToCountry(name) {
+  if (!_geojsonData || !_map) return;
+  const feature = _geojsonData.features.find(f => (f.properties.ADMIN || f.properties.name) === name);
+  if (!feature) return;
+  const layer = L.geoJSON(feature);
+  _map.fitBounds(layer.getBounds(), { padding: [40, 40], maxZoom: 6 });
+}
+
+function flyTo(lat, lng, zoom) {
+  if (_map) _map.flyTo([lat, lng], zoom || 5, { duration: 1.2 });
+}
+
+function invalidateMap() {
+  if (_map) _map.invalidateSize();
+}
+
+// ── Country list for selection modal ──────────────────────
+function getAllCountryNames() {
+  if (!_geojsonData) return [];
+  return _geojsonData.features
+    .map(f => f.properties.ADMIN || f.properties.name || '')
+    .filter(Boolean)
+    .sort();
+}
