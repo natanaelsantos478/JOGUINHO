@@ -97,7 +97,7 @@ async function initSelectMap() {
 async function _loadGeoJSON() {
   if (_geojsonData) return true;
   try {
-    const res = await fetch('países.geojson');
+    const res = await fetch('countries.geojson');
     if (!res.ok) throw new Error('HTTP ' + res.status);
     _geojsonData = await res.json();
     return true;

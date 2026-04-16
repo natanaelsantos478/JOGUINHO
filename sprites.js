@@ -7,7 +7,7 @@ const _imageCache = {};     // sheetName → HTMLImageElement
 
 // Unit type → sheet + specific sprite name + fallback emoji
 const UNIT_SPRITE_MAP = {
-  infantry:        { sheet: 'soldados_de_folha.png',      sprite: 'sol_infantry_soldier',     emoji: '🪖' },
+  infantry:        { sheet: 'sheet_soldiers.png',          sprite: 'sol_infantry_soldier',     emoji: '🪖' },
   motorized:       { sheet: 'sheet_ground_support.png',  sprite: null,                        emoji: '🚗' },
   veh_light:       { sheet: 'sheet_vehicles_light.png',  sprite: 'veh1_humvee_hmmwv',        emoji: '🚙' },
   veh_medium:      { sheet: 'sheet_vehicles_medium.png', sprite: 'veh2_bradley_m2',          emoji: '🚛' },
