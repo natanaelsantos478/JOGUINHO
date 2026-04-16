@@ -31,7 +31,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     // New game — show country selection
     setLoadingMsg('Carregando mapa de países...');
     // Pre-load GeoJSON silently for the modal
-    const res = await fetch('/IMAGES/countries.geojson').catch(() => null);
+    const res = await fetch('países.geojson').catch(() => null);
     if (!res || !res.ok) {
       document.getElementById('loading-screen').style.display = 'none';
       document.getElementById('geojson-missing').style.display = 'flex';

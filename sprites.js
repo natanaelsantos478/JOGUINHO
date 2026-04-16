@@ -7,7 +7,7 @@ const _imageCache = {};     // sheetName → HTMLImageElement
 
 // Unit type → sheet + specific sprite name + fallback emoji
 const UNIT_SPRITE_MAP = {
-  infantry:        { sheet: 'sheet_soldiers.png',        sprite: 'sol_infantry_soldier',     emoji: '🪖' },
+  infantry:        { sheet: 'soldados_de_folha.png',      sprite: 'sol_infantry_soldier',     emoji: '🪖' },
   motorized:       { sheet: 'sheet_ground_support.png',  sprite: null,                        emoji: '🚗' },
   veh_light:       { sheet: 'sheet_vehicles_light.png',  sprite: 'veh1_humvee_hmmwv',        emoji: '🚙' },
   veh_medium:      { sheet: 'sheet_vehicles_medium.png', sprite: 'veh2_bradley_m2',          emoji: '🚛' },
@@ -42,7 +42,7 @@ const STRUCTURE_SPRITE_MAP = {
 
 async function initSprites() {
   try {
-    const res = await fetch('/IMAGES/sprites_coords.json');
+    const res = await fetch('sprites_coords.json');
     if (res.ok) {
       _spriteCoords = await res.json();
       // Pre-load all referenced sheets so createUnitIconSync can render synchronously
@@ -62,7 +62,7 @@ async function _loadSheet(sheetName) {
     const img = new Image();
     img.onload  = () => { _imageCache[sheetName] = img; resolve(img); };
     img.onerror = () => { _imageCache[sheetName] = null; resolve(null); };
-    img.src = `/IMAGES/${sheetName}`;
+    img.src = sheetName;
   });
 }
 
