@@ -947,6 +947,720 @@
           "h": 512
         }
       }
+    },
+    "sheet_map_movement.png": {
+      "grid": "4x4",
+      "cell_size": 512,
+      "sprites": {
+        "map_arrow_move": {
+          "x": 0,
+          "y": 0,
+          "w": 512,
+          "h": 512
+        },
+        "map_arrow_curve": {
+          "x": 512,
+          "y": 0,
+          "w": 512,
+          "h": 512
+        },
+        "map_path_dotted": {
+          "x": 1024,
+          "y": 0,
+          "w": 512,
+          "h": 512
+        },
+        "map_waypoint_diamond": {
+          "x": 1536,
+          "y": 0,
+          "w": 512,
+          "h": 512
+        },
+        "map_rotate_arrow": {
+          "x": 0,
+          "y": 512,
+          "w": 512,
+          "h": 512
+        },
+        "map_patrol_route": {
+          "x": 512,
+          "y": 512,
+          "w": 512,
+          "h": 512
+        },
+        "map_flank_zigzag": {
+          "x": 1024,
+          "y": 512,
+          "w": 512,
+          "h": 512
+        },
+        "map_retreat_dash": {
+          "x": 1536,
+          "y": 512,
+          "w": 512,
+          "h": 512
+        },
+        "map_stop_x": {
+          "x": 0,
+          "y": 1024,
+          "w": 512,
+          "h": 512
+        },
+        "map_select_green": {
+          "x": 512,
+          "y": 1024,
+          "w": 512,
+          "h": 512
+        },
+        "map_alert_orange": {
+          "x": 1024,
+          "y": 1024,
+          "w": 512,
+          "h": 512
+        },
+        "map_flag_blue": {
+          "x": 1536,
+          "y": 1024,
+          "w": 512,
+          "h": 512
+        },
+        "map_crosshair": {
+          "x": 0,
+          "y": 1536,
+          "w": 512,
+          "h": 512
+        },
+        "map_area_effect": {
+          "x": 512,
+          "y": 1536,
+          "w": 512,
+          "h": 512
+        },
+        "map_front_line": {
+          "x": 1024,
+          "y": 1536,
+          "w": 512,
+          "h": 512
+        },
+        "map_grid_select": {
+          "x": 1536,
+          "y": 1536,
+          "w": 512,
+          "h": 512
+        }
+      }
+    },
+    "sheet_icons_events.png": {
+      "grid": "4x4",
+      "cell_size": 512,
+      "sprites": {
+        "evt_war_explosion": {
+          "x": 0,
+          "y": 0,
+          "w": 512,
+          "h": 512
+        },
+        "evt_peace_handshake": {
+          "x": 512,
+          "y": 0,
+          "w": 512,
+          "h": 512
+        },
+        "evt_alliance_flag": {
+          "x": 1024,
+          "y": 0,
+          "w": 512,
+          "h": 512
+        },
+        "evt_betrayal_sword": {
+          "x": 1536,
+          "y": 0,
+          "w": 512,
+          "h": 512
+        },
+        "evt_disease_biohazard": {
+          "x": 0,
+          "y": 512,
+          "w": 512,
+          "h": 512
+        },
+        "evt_famine_coin": {
+          "x": 512,
+          "y": 512,
+          "w": 512,
+          "h": 512
+        },
+        "evt_disaster_storm": {
+          "x": 1024,
+          "y": 512,
+          "w": 512,
+          "h": 512
+        },
+        "evt_econ_crisis": {
+          "x": 1536,
+          "y": 512,
+          "w": 512,
+          "h": 512
+        },
+        "evt_revolution_fist": {
+          "x": 0,
+          "y": 1024,
+          "w": 512,
+          "h": 512
+        },
+        "evt_coup_crown": {
+          "x": 512,
+          "y": 1024,
+          "w": 512,
+          "h": 512
+        },
+        "evt_election_ballot": {
+          "x": 1024,
+          "y": 1024,
+          "w": 512,
+          "h": 512
+        },
+        "evt_assassination": {
+          "x": 1536,
+          "y": 1024,
+          "w": 512,
+          "h": 512
+        },
+        "evt_nuclear_radiation": {
+          "x": 0,
+          "y": 1536,
+          "w": 512,
+          "h": 512
+        },
+        "evt_cyber_attack": {
+          "x": 512,
+          "y": 1536,
+          "w": 512,
+          "h": 512
+        },
+        "evt_terrorist_bomb": {
+          "x": 1024,
+          "y": 1536,
+          "w": 512,
+          "h": 512
+        },
+        "evt_insurgency": {
+          "x": 1536,
+          "y": 1536,
+          "w": 512,
+          "h": 512
+        }
+      }
+    },
+    "sheet_structures_civilian.png": {
+      "grid": "4x4",
+      "cell_size": 512,
+      "sprites": {
+        "civ_village": {
+          "x": 0,
+          "y": 0,
+          "w": 512,
+          "h": 512
+        },
+        "civ_town": {
+          "x": 512,
+          "y": 0,
+          "w": 512,
+          "h": 512
+        },
+        "civ_city": {
+          "x": 1024,
+          "y": 0,
+          "w": 512,
+          "h": 512
+        },
+        "civ_metropolis": {
+          "x": 1536,
+          "y": 0,
+          "w": 512,
+          "h": 512
+        },
+        "civ_airport": {
+          "x": 0,
+          "y": 512,
+          "w": 512,
+          "h": 512
+        },
+        "civ_seaport": {
+          "x": 512,
+          "y": 512,
+          "w": 512,
+          "h": 512
+        },
+        "civ_highway": {
+          "x": 1024,
+          "y": 512,
+          "w": 512,
+          "h": 512
+        },
+        "civ_railway": {
+          "x": 1536,
+          "y": 512,
+          "w": 512,
+          "h": 512
+        },
+        "civ_oil_refinery": {
+          "x": 0,
+          "y": 1024,
+          "w": 512,
+          "h": 512
+        },
+        "civ_power_plant": {
+          "x": 512,
+          "y": 1024,
+          "w": 512,
+          "h": 512
+        },
+        "civ_telecom_tower": {
+          "x": 1024,
+          "y": 1024,
+          "w": 512,
+          "h": 512
+        },
+        "civ_data_center": {
+          "x": 1536,
+          "y": 1024,
+          "w": 512,
+          "h": 512
+        },
+        "civ_hospital": {
+          "x": 0,
+          "y": 1536,
+          "w": 512,
+          "h": 512
+        },
+        "civ_university": {
+          "x": 512,
+          "y": 1536,
+          "w": 512,
+          "h": 512
+        },
+        "civ_police_hq": {
+          "x": 1024,
+          "y": 1536,
+          "w": 512,
+          "h": 512
+        },
+        "civ_government": {
+          "x": 1536,
+          "y": 1536,
+          "w": 512,
+          "h": 512
+        }
+      }
+    },
+    "sheet_structures_support.png": {
+      "grid": "4x4",
+      "cell_size": 512,
+      "sprites": {
+        "sup_fob_supply": {
+          "x": 0,
+          "y": 0,
+          "w": 512,
+          "h": 512
+        },
+        "sup_engineer_depot": {
+          "x": 512,
+          "y": 0,
+          "w": 512,
+          "h": 512
+        },
+        "sup_logistics_hub": {
+          "x": 1024,
+          "y": 0,
+          "w": 512,
+          "h": 512
+        },
+        "sup_farp_helipad": {
+          "x": 1536,
+          "y": 0,
+          "w": 512,
+          "h": 512
+        },
+        "sup_sat_uplink": {
+          "x": 0,
+          "y": 512,
+          "w": 512,
+          "h": 512
+        },
+        "sup_sigint_station": {
+          "x": 512,
+          "y": 512,
+          "w": 512,
+          "h": 512
+        },
+        "sup_data_center": {
+          "x": 1024,
+          "y": 512,
+          "w": 512,
+          "h": 512
+        },
+        "sup_weather_station": {
+          "x": 1536,
+          "y": 512,
+          "w": 512,
+          "h": 512
+        },
+        "sup_nuclear_plant": {
+          "x": 0,
+          "y": 1024,
+          "w": 512,
+          "h": 512
+        },
+        "sup_solar_farm": {
+          "x": 512,
+          "y": 1024,
+          "w": 512,
+          "h": 512
+        },
+        "sup_wind_farm": {
+          "x": 1024,
+          "y": 1024,
+          "w": 512,
+          "h": 512
+        },
+        "sup_hydro_dam": {
+          "x": 1536,
+          "y": 1024,
+          "w": 512,
+          "h": 512
+        },
+        "sup_water_treatment": {
+          "x": 0,
+          "y": 1536,
+          "w": 512,
+          "h": 512
+        },
+        "sup_food_storage": {
+          "x": 512,
+          "y": 1536,
+          "w": 512,
+          "h": 512
+        },
+        "sup_research_lab": {
+          "x": 1024,
+          "y": 1536,
+          "w": 512,
+          "h": 512
+        },
+        "sup_training_academy": {
+          "x": 1536,
+          "y": 1536,
+          "w": 512,
+          "h": 512
+        }
+      }
+    },
+    "sheet_structures_military.png": {
+      "grid": "4x4",
+      "cell_size": 512,
+      "sprites": {
+        "mil_army_hq": {
+          "x": 0,
+          "y": 0,
+          "w": 512,
+          "h": 512
+        },
+        "mil_nuclear_bunker": {
+          "x": 512,
+          "y": 0,
+          "w": 512,
+          "h": 512
+        },
+        "mil_missile_silo": {
+          "x": 1024,
+          "y": 0,
+          "w": 512,
+          "h": 512
+        },
+        "mil_radar_station": {
+          "x": 1536,
+          "y": 0,
+          "w": 512,
+          "h": 512
+        },
+        "mil_airbase": {
+          "x": 0,
+          "y": 512,
+          "w": 512,
+          "h": 512
+        },
+        "mil_naval_base": {
+          "x": 512,
+          "y": 512,
+          "w": 512,
+          "h": 512
+        },
+        "mil_barracks": {
+          "x": 1024,
+          "y": 512,
+          "w": 512,
+          "h": 512
+        },
+        "mil_antiair_gun": {
+          "x": 1536,
+          "y": 512,
+          "w": 512,
+          "h": 512
+        },
+        "mil_watchtower": {
+          "x": 0,
+          "y": 1024,
+          "w": 512,
+          "h": 512
+        },
+        "mil_border_checkpoint": {
+          "x": 512,
+          "y": 1024,
+          "w": 512,
+          "h": 512
+        },
+        "mil_detention": {
+          "x": 1024,
+          "y": 1024,
+          "w": 512,
+          "h": 512
+        },
+        "mil_command_bunker": {
+          "x": 1536,
+          "y": 1024,
+          "w": 512,
+          "h": 512
+        },
+        "mil_armory": {
+          "x": 0,
+          "y": 1536,
+          "w": 512,
+          "h": 512
+        },
+        "mil_field_hospital": {
+          "x": 512,
+          "y": 1536,
+          "w": 512,
+          "h": 512
+        },
+        "mil_fuel_depot": {
+          "x": 1024,
+          "y": 1536,
+          "w": 512,
+          "h": 512
+        },
+        "mil_ammo_factory": {
+          "x": 1536,
+          "y": 1536,
+          "w": 512,
+          "h": 512
+        }
+      }
+    },
+    "sheet_supplies.png": {
+      "grid": "4x4",
+      "cell_size": 512,
+      "sprites": {
+        "sup_airdrop_crate": {
+          "x": 0,
+          "y": 0,
+          "w": 512,
+          "h": 512
+        },
+        "sup_ammo_crates": {
+          "x": 512,
+          "y": 0,
+          "w": 512,
+          "h": 512
+        },
+        "sup_fuel_drum": {
+          "x": 1024,
+          "y": 0,
+          "w": 512,
+          "h": 512
+        },
+        "sup_food_boxes": {
+          "x": 1536,
+          "y": 0,
+          "w": 512,
+          "h": 512
+        },
+        "sup_field_radio": {
+          "x": 0,
+          "y": 512,
+          "w": 512,
+          "h": 512
+        },
+        "sup_sat_dish": {
+          "x": 512,
+          "y": 512,
+          "w": 512,
+          "h": 512
+        },
+        "sup_generator": {
+          "x": 1024,
+          "y": 512,
+          "w": 512,
+          "h": 512
+        },
+        "sup_water_purifier": {
+          "x": 1536,
+          "y": 512,
+          "w": 512,
+          "h": 512
+        },
+        "sup_medical_kit": {
+          "x": 0,
+          "y": 1024,
+          "w": 512,
+          "h": 512
+        },
+        "sup_blood_plasma": {
+          "x": 512,
+          "y": 1024,
+          "w": 512,
+          "h": 512
+        },
+        "sup_stretcher": {
+          "x": 1024,
+          "y": 1024,
+          "w": 512,
+          "h": 512
+        },
+        "sup_defibrillator": {
+          "x": 1536,
+          "y": 1024,
+          "w": 512,
+          "h": 512
+        },
+        "sup_barbed_wire": {
+          "x": 0,
+          "y": 1536,
+          "w": 512,
+          "h": 512
+        },
+        "sup_sandbags": {
+          "x": 512,
+          "y": 1536,
+          "w": 512,
+          "h": 512
+        },
+        "sup_field_tent": {
+          "x": 1024,
+          "y": 1536,
+          "w": 512,
+          "h": 512
+        },
+        "sup_pontoon_bridge": {
+          "x": 1536,
+          "y": 1536,
+          "w": 512,
+          "h": 512
+        }
+      }
+    },
+    "sheet_weapons.png": {
+      "grid": "4x4",
+      "cell_size": 512,
+      "sprites": {
+        "wpn_nuclear_warhead": {
+          "x": 0,
+          "y": 0,
+          "w": 512,
+          "h": 512
+        },
+        "wpn_cruise_missile": {
+          "x": 512,
+          "y": 0,
+          "w": 512,
+          "h": 512
+        },
+        "wpn_bunker_buster": {
+          "x": 1024,
+          "y": 0,
+          "w": 512,
+          "h": 512
+        },
+        "wpn_cluster_bomb": {
+          "x": 1536,
+          "y": 0,
+          "w": 512,
+          "h": 512
+        },
+        "wpn_torpedo": {
+          "x": 0,
+          "y": 512,
+          "w": 512,
+          "h": 512
+        },
+        "wpn_depth_charge": {
+          "x": 512,
+          "y": 512,
+          "w": 512,
+          "h": 512
+        },
+        "wpn_antiship_missile": {
+          "x": 1024,
+          "y": 512,
+          "w": 512,
+          "h": 512
+        },
+        "wpn_antitank_missile": {
+          "x": 1536,
+          "y": 512,
+          "w": 512,
+          "h": 512
+        },
+        "wpn_landmine": {
+          "x": 0,
+          "y": 1024,
+          "w": 512,
+          "h": 512
+        },
+        "wpn_antitank_mine": {
+          "x": 512,
+          "y": 1024,
+          "w": 512,
+          "h": 512
+        },
+        "wpn_naval_mine": {
+          "x": 1024,
+          "y": 1024,
+          "w": 512,
+          "h": 512
+        },
+        "wpn_magnetic_mine": {
+          "x": 1536,
+          "y": 1024,
+          "w": 512,
+          "h": 512
+        },
+        "wpn_artillery_shell": {
+          "x": 0,
+          "y": 1536,
+          "w": 512,
+          "h": 512
+        },
+        "wpn_mortar": {
+          "x": 512,
+          "y": 1536,
+          "w": 512,
+          "h": 512
+        },
+        "wpn_rpg": {
+          "x": 1024,
+          "y": 1536,
+          "w": 512,
+          "h": 512
+        },
+        "wpn_manpads": {
+          "x": 1536,
+          "y": 1536,
+          "w": 512,
+          "h": 512
+        }
+      }
     }
   }
 }
