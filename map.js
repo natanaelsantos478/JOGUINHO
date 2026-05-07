@@ -310,24 +310,61 @@ function enterBuildMode(structType) {
 
 // ── Fly to country — animated ──────────────────────────────
 function flyToCountry(name) {
-  if (!_geojsonData || !_map) return;
-  try {
-    const feature = _geojsonData.features.find(f =>
-      (f.properties.ADMIN || f.properties.name || '') === name
-    );
-    if (!feature) {
-      console.warn('flyToCountry: feature not found for', name);
-      return;
+  if (!_map) return;
+
+  // Step 1: always zoom out to world view first so the animation is visible
+  _map.setZoom(2, { animate: false });
+
+  // Step 2: try to find the GeoJSON feature and fly to its bounds
+  if (_geojsonData) {
+    try {
+      const feature = _geojsonData.features.find(f =>
+        (f.properties.ADMIN || f.properties.name || '') === name
+      );
+      if (feature) {
+        const layer = L.geoJSON(feature);
+        const bounds = layer.getBounds();
+        if (bounds.isValid()) {
+          setTimeout(() => {
+            _map.flyToBounds(bounds, { padding: [50, 50], maxZoom: 7, duration: 1.8 });
+          }, 100);
+          return;
+        }
+      }
+    } catch (e) {
+      console.warn('flyToCountry GeoJSON error:', e);
     }
-    const layer = L.geoJSON(feature);
-    const bounds = layer.getBounds();
-    if (bounds.isValid()) {
-      _map.flyToBounds(bounds, { padding: [40, 40], maxZoom: 7, duration: 1.5 });
-    }
-  } catch (e) {
-    console.warn('flyToCountry error:', e);
+  }
+
+  // Fallback: fly to centroid using AI_CENTROIDS table
+  const centroid = (typeof AI_CENTROIDS !== 'undefined' && AI_CENTROIDS[name])
+    ? AI_CENTROIDS[name]
+    : _FALLBACK_CENTROIDS[name];
+
+  if (centroid) {
+    setTimeout(() => {
+      _map.flyTo([centroid.lat, centroid.lng], 5, { duration: 1.8 });
+    }, 100);
   }
 }
+
+// Centroids de fallback para os países mais comuns
+const _FALLBACK_CENTROIDS = {
+  'Brazil': { lat: -14, lng: -51 }, 'United States': { lat: 38, lng: -97 },
+  'Russia': { lat: 60, lng: 90 },   'China': { lat: 35, lng: 103 },
+  'Germany': { lat: 51, lng: 10 },  'France': { lat: 46, lng: 2 },
+  'United Kingdom': { lat: 55, lng: -3 }, 'Japan': { lat: 36, lng: 138 },
+  'India': { lat: 20, lng: 77 },    'Canada': { lat: 56, lng: -96 },
+  'Australia': { lat: -25, lng: 133 }, 'Argentina': { lat: -38, lng: -63 },
+  'Mexico': { lat: 23, lng: -102 }, 'South Korea': { lat: 36, lng: 128 },
+  'Turkey': { lat: 39, lng: 35 },   'Saudi Arabia': { lat: 23, lng: 45 },
+  'Italy': { lat: 41, lng: 12 },    'Spain': { lat: 40, lng: -4 },
+  'Iran': { lat: 32, lng: 53 },     'North Korea': { lat: 40, lng: 127 },
+  'Algeria': { lat: 28, lng: 2 },   'Egypt': { lat: 27, lng: 30 },
+  'Nigeria': { lat: 9, lng: 8 },    'South Africa': { lat: -29, lng: 25 },
+  'Indonesia': { lat: -2, lng: 118 },'Ukraine': { lat: 49, lng: 32 },
+  'Poland': { lat: 52, lng: 20 },   'Pakistan': { lat: 30, lng: 70 },
+};
 
 function flyTo(lat, lng, zoom) {
   if (_map) _map.flyTo([lat, lng], zoom || 5, { duration: 1.2 });
