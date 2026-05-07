@@ -511,31 +511,28 @@ function uiRecruit(type) {
   closeRecruitModal();
   updateHeader(state);
 
-  flyToCountry(state.player_country);
-  setTimeout(() => {
-    enterPlaceUnitMode(
-      unit,
-      (lat, lng) => {
-        unit.lat = lat; unit.lng = lng;
-        if (!state.units) state.units = [];
-        state.units.push(unit);
-        state.game_log.unshift(`[Turno ${state.turn}] Recrutado: ${UNIT_DEFS[unit.type].label} — ${unit.name}`);
-        renderUnits(state);
-        renderPanelForTab('military');
-        saveGame(state);
-        notify(`${unit.name} posicionado`, 'info');
-        flyTo(lat, lng, 6);
-      },
-      () => {
-        const def = UNIT_DEFS[unit.type];
-        state.resources.money    += def.cost;
-        state.resources.manpower += def.manpower;
-        updateHeader(state);
-        notify('Recrutamento cancelado — recursos reembolsados', 'info');
-      },
-      state.player_country
-    );
-  }, 600);
+  enterPlaceUnitMode(
+    unit,
+    (lat, lng) => {
+      unit.lat = lat; unit.lng = lng;
+      if (!state.units) state.units = [];
+      state.units.push(unit);
+      state.game_log.unshift(`[Turno ${state.turn}] Recrutado: ${UNIT_DEFS[unit.type].label} — ${unit.name}`);
+      renderUnits(state);
+      renderPanelForTab('military');
+      saveGame(state);
+      notify(`${unit.name} posicionado`, 'info');
+      flyTo(lat, lng, 6);
+    },
+    () => {
+      const def = UNIT_DEFS[unit.type];
+      state.resources.money    += def.cost;
+      state.resources.manpower += def.manpower;
+      updateHeader(state);
+      notify('Recrutamento cancelado — recursos reembolsados', 'info');
+    },
+    state.player_country
+  );
 }
 
 function uiStartBuild(type) {

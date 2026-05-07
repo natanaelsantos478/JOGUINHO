@@ -236,6 +236,7 @@ function renderCountries(state) {
     onEachFeature(feature, layer) {
       const name = feature.properties.ADMIN || feature.properties.name || '';
       layer.on('click', (e) => {
+        if (_placeUnitMode) return; // let click bubble to map for unit placement
         L.DomEvent.stopPropagation(e);
         onCountryClick(name, state);
       });
