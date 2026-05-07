@@ -2,7 +2,6 @@
 //  game.js — Main orchestrator, GameState, init, end turn
 // ═══════════════════════════════════════════════════════════
 
-// Global game state — exposed as window.GS
 window.GS = null;
 
 // ── Bootstrap ──────────────────────────────────────────────
@@ -22,15 +21,13 @@ window.addEventListener('DOMContentLoaded', async () => {
 
     setLoadingMsg('Carregando mapa...');
     const ok = await initMap(window.GS.map_view);
-    if (!ok) return; // GeoJSON missing — screen shown by map.js
+    if (!ok) return;
 
     showGameUI();
     renderAll();
     notify(`Jogo carregado — Turno ${window.GS.turn}`, 'info');
   } else {
-    // New game — show country selection
-    setLoadingMsg('Carregando mapa de países...');
-    // Pre-load GeoJSON silently for the modal
+    setLoadingMsg('Carregando mapa de paises...');
     const res = await fetch('countries.geojson').catch(() => null);
     if (!res || !res.ok) {
       document.getElementById('loading-screen').style.display = 'none';
@@ -43,7 +40,6 @@ window.addEventListener('DOMContentLoaded', async () => {
 
 // ── Build state from Supabase row ──────────────────────────
 function buildStateFromSave(row) {
-  // resources jsonb contains packed extra fields (ministries, satisfaction, structures)
   const res = row.resources || {};
   const baseResources = {
     money:    res.money    || 0,
@@ -88,7 +84,7 @@ async function confirmCountrySelection(countryName) {
     ministries:     initMinistries(),
     satisfaction:   50,
     map_view:       null,
-    game_log:       [`[Turno 1] 🎮 Campanha iniciada como ${countryName}`],
+    game_log:       [`[Turno 1] Campanha iniciada como ${countryName}`],
   };
 
   setLoadingMsg('Carregando mapa...');
@@ -99,9 +95,8 @@ async function confirmCountrySelection(countryName) {
   renderAll();
   flyToCountry(countryName);
 
-  // Save initial state
   saveGame(window.GS);
-  notify(`Bem-vindo, Líder de ${countryName}!`, 'info');
+  notify(`Bem-vindo, Lider de ${countryName}!`, 'info');
 }
 
 // ── Render everything ──────────────────────────────────────
@@ -123,27 +118,30 @@ async function doEndTurn() {
 
   const state = window.GS;
 
-  // 1. Process player turn (resources, events, constructions)
+  // 1. Player turn
   const events = processTurn(state);
 
-  // 2. AI turns
+  // 2. AI turns (Gemini + simples)
   const allNames = getAllCountryNames();
-  const aiEvents = aiTurns(state, allNames);
+  let aiEvents = [];
+  try {
+    aiEvents = await aiTurnsWithGemini(state, allNames);
+  } catch (e) {
+    console.warn('aiTurnsWithGemini falhou, usando fallback:', e);
+    aiEvents = aiTurns(state, allNames);
+  }
   aiEvents.forEach(e => state.game_log.unshift(e));
 
-  // 3. Check game-over conditions
+  // 3. Check game-over
   if ((state.satisfaction || 50) < 10) {
-    notify('💥 Golpe de Estado! A satisfação chegou a 0. Você perdeu!', 'error');
-    // Optionally allow restart
+    notify('Golpe de Estado! A satisfacao chegou a 0. Voce perdeu!', 'error');
   }
 
   // 4. Re-render
   renderAll();
 
-  // Show events
   if (events.length > 0 || aiEvents.length > 0) {
-    const combined = [...events, ...aiEvents];
-    notify(combined[0], 'info');
+    notify([...events, ...aiEvents][0], 'info');
   }
 
   // 5. Save
@@ -155,12 +153,11 @@ async function doEndTurn() {
 
 // ── Reset / new game ───────────────────────────────────────
 async function resetGame() {
-  if (!confirm('Apagar o save e começar uma nova campanha?')) return;
+  if (!confirm('Apagar o save e comecar uma nova campanha?')) return;
   await deleteSave();
   window.GS = null;
   location.reload();
 }
 
-// Expose for console debugging
 window.resetGame = resetGame;
 window.renderAll = renderAll;

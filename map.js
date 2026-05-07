@@ -8,8 +8,7 @@ let _unitsLayer = null;
 let _structuresLayer = null;
 let _routeLines = [];
 let _geojsonData = null;
-// Unit selection state — shared via window for cross-module access
-// Use window.window._selectedUnitId to read/write from any module
+let _placeUnitMode = null; // { unit, onPlace } — set when player clicks "Recrutar"
 
 // ── Initialise main game map ───────────────────────────────
 async function initMap(savedView) {
@@ -24,24 +23,26 @@ async function initMap(savedView) {
     zoomControl: true,
   });
 
-  // Dark CartoDB tiles
   L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
     attribution: '',
     subdomains: 'abcd',
     maxZoom: 20,
   }).addTo(_map);
 
-  // Layer groups
   _countriesLayer  = L.layerGroup().addTo(_map);
   _unitsLayer      = L.layerGroup().addTo(_map);
   _structuresLayer = L.layerGroup().addTo(_map);
 
-  // Load GeoJSON
   const loaded = await _loadGeoJSON();
   if (!loaded) return false;
 
-  // Map click — move selected unit or deselect
   _map.on('click', (e) => {
+    if (_placeUnitMode) {
+      const { unit, onPlace } = _placeUnitMode;
+      _cancelPlaceMode();
+      onPlace(e.latlng.lat, e.latlng.lng);
+      return;
+    }
     if (window._selectedUnitId) {
       _handleMapClickForMove(e.latlng.lat, e.latlng.lng);
     } else {
@@ -50,7 +51,6 @@ async function initMap(savedView) {
     }
   });
 
-  // Track view for save
   _map.on('moveend zoomend', () => {
     if (window.GS) {
       const c = _map.getCenter();
@@ -61,12 +61,23 @@ async function initMap(savedView) {
   return true;
 }
 
+// ── Place-unit mode ────────────────────────────────────────
+function enterPlaceUnitMode(unit, onPlace) {
+  _placeUnitMode = { unit, onPlace };
+  if (_map) _map.getContainer().style.cursor = 'crosshair';
+}
+
+function _cancelPlaceMode() {
+  _placeUnitMode = null;
+  if (_map) _map.getContainer().style.cursor = '';
+}
+
 // ── Country selection map (modal) ──────────────────────────
 let _selectMap = null;
 let _selectLayer = null;
 
 async function initSelectMap() {
-  if (_selectMap) return; // already inited
+  if (_selectMap) return;
   _selectMap = L.map('country-select-map', {
     center: [20, 0], zoom: 2, minZoom: 1, maxZoom: 5,
     zoomControl: true,
@@ -130,9 +141,12 @@ function renderCountries(state) {
         L.DomEvent.stopPropagation(e);
         onCountryClick(name, state);
       });
-      layer.on('mouseover', function(e) {
+      layer.on('mouseover', function() {
         this.setStyle({ weight: 2, color: '#c8a84b' });
-        this.bindTooltip(`<div style="font-family:'Cinzel',serif;font-size:0.8rem;color:#c8a84b;background:#0f1318;border:1px solid #1e2535;padding:4px 8px;border-radius:4px;">${name}</div>`, { sticky: true, className: '' }).openTooltip();
+        this.bindTooltip(
+          `<div style="font-family:'Cinzel',serif;font-size:0.8rem;color:#c8a84b;background:#0f1318;border:1px solid #1e2535;padding:4px 8px;border-radius:4px;">${name}</div>`,
+          { sticky: true, className: '' }
+        ).openTooltip();
       });
       layer.on('mouseout', function() {
         this.setStyle({ weight: 1, color: '#1e2535' });
@@ -143,7 +157,7 @@ function renderCountries(state) {
 }
 
 function onCountryClick(name, state) {
-  if (window._selectedUnitId) return; // in move mode
+  if (window._selectedUnitId) return;
   window._selectedCountry = name;
   renderPanelForTab('info');
   switchTab('info');
@@ -182,10 +196,12 @@ function renderUnits(state) {
 function _buildUnitTooltip(unit) {
   const def = UNIT_DEFS[unit.type];
   const lvName = levelName(unit.level);
+  const hpPct  = Math.round(unit.hp);
+  const enPct  = Math.round(unit.energy / unit.energyCap * 100);
   return `<div class="unit-tooltip">
     <div class="unit-tooltip-name">${unit.name}</div>
     <div>${def ? def.label : unit.type} — ${lvName}</div>
-    <div>❤️ ${Math.round(unit.hp)}%  ⚡ ${Math.round(unit.energy)}%  👥 x${unit.squadSize}</div>
+    <div>HP ${hpPct}%  EN ${enPct}%  Esq x${unit.squadSize}</div>
   </div>`;
 }
 
@@ -196,7 +212,6 @@ function onUnitClick(unitId, state) {
 
   if (isPlayer) {
     if (window._selectedUnitId === unitId) {
-      // Deselect
       window._selectedUnitId = null;
       clearRouteLines();
     } else {
@@ -243,7 +258,6 @@ function drawRouteLine(fromLat, fromLng, toLat, toLng) {
 
 function animateUnitMove(unit, destLat, destLng, onDone) {
   drawRouteLine(unit.lat, unit.lng, destLat, destLng);
-  // Update marker position immediately (Leaflet doesn't animate natively)
   if (unit._marker) {
     unit._marker.setLatLng([destLat, destLng]);
   }
@@ -260,9 +274,13 @@ function renderStructures(state) {
 
   (state.structures || []).forEach(s => {
     if (!s.lat || !s.lng) return;
-    const icon = createStructureIcon(s.type);
+    const icon = createStructureIcon(s.type, s.complete);
     const marker = L.marker([s.lat, s.lng], { icon });
-    marker.bindTooltip(`<div style="background:#0f1318;border:1px solid #1e2535;padding:4px 8px;border-radius:4px;font-size:0.8rem;color:#ccc9bc;">${s.emoji} ${s.label}${s.complete ? '' : ` (${s.turnsLeft} turnos)`}</div>`, { className: '' });
+    const status = s.complete ? 'Concluida' : `Em construcao: ${s.turnsLeft} turno${s.turnsLeft !== 1 ? 's' : ''}`;
+    marker.bindTooltip(
+      `<div style="background:#0f1318;border:1px solid #1e2535;padding:4px 8px;border-radius:4px;font-size:0.8rem;color:#ccc9bc;">${s.label} — ${status}</div>`,
+      { className: '' }
+    );
     marker.addTo(_structuresLayer);
   });
 }
@@ -273,14 +291,14 @@ let _buildMode = null;
 function enterBuildMode(structType) {
   _buildMode = structType;
   const def = STRUCTURE_DEFS[structType];
-  notify(`${def.emoji} Clique no mapa para posicionar: ${def.label}`, 'info');
+  notify(`Clique no mapa para posicionar: ${def.label}`, 'info');
   _map.once('click', (e) => {
     if (!_buildMode) return;
     const type = _buildMode;
     _buildMode = null;
     const result = startConstruction(type, window.GS, e.latlng.lat, e.latlng.lng);
     if (result.ok) {
-      notify(`Construção iniciada: ${result.structure.emoji} ${result.structure.label}`, 'info');
+      notify(`Construcao iniciada: ${result.structure.label}`, 'info');
       renderStructures(window.GS);
       renderPanelForTab('build');
       saveGame(window.GS);
@@ -290,13 +308,25 @@ function enterBuildMode(structType) {
   });
 }
 
-// ── Fly to country ─────────────────────────────────────────
+// ── Fly to country — animated ──────────────────────────────
 function flyToCountry(name) {
   if (!_geojsonData || !_map) return;
-  const feature = _geojsonData.features.find(f => (f.properties.ADMIN || f.properties.name) === name);
-  if (!feature) return;
-  const layer = L.geoJSON(feature);
-  _map.fitBounds(layer.getBounds(), { padding: [40, 40], maxZoom: 6 });
+  try {
+    const feature = _geojsonData.features.find(f =>
+      (f.properties.ADMIN || f.properties.name || '') === name
+    );
+    if (!feature) {
+      console.warn('flyToCountry: feature not found for', name);
+      return;
+    }
+    const layer = L.geoJSON(feature);
+    const bounds = layer.getBounds();
+    if (bounds.isValid()) {
+      _map.flyToBounds(bounds, { padding: [40, 40], maxZoom: 7, duration: 1.5 });
+    }
+  } catch (e) {
+    console.warn('flyToCountry error:', e);
+  }
 }
 
 function flyTo(lat, lng, zoom) {

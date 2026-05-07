@@ -38,7 +38,6 @@ function saveGame(state) {
 
 async function _doSave(state) {
   try {
-    // Pack extra state into jsonb columns that exist in the schema
     const resourcesPayload = {
       ...state.resources,
       ministries:   state.ministries,
@@ -57,7 +56,6 @@ async function _doSave(state) {
       allies:         state.allies,
       map_view:       state.map_view,
       game_log:       state.game_log.slice(-200),
-      updated_at:     new Date().toISOString()
     };
 
     const { error } = await _db
@@ -79,9 +77,9 @@ async function _doSave(state) {
 function _setSaveIndicator(status) {
   const el = document.getElementById('save-indicator');
   if (!el) return;
-  if (status === 'saving') { el.textContent = '💾 Salvando...'; el.style.color = 'var(--muted)'; }
-  else if (status === 'saved') { el.textContent = '✅ Salvo'; el.style.color = 'var(--green)'; }
-  else { el.textContent = '❌ Erro'; el.style.color = 'var(--red)'; }
+  if (status === 'saving') { el.textContent = 'Salvando...'; el.style.color = 'var(--muted)'; }
+  else if (status === 'saved') { el.textContent = 'Salvo'; el.style.color = 'var(--green)'; }
+  else { el.textContent = 'Erro ao salvar'; el.style.color = 'var(--red)'; }
 }
 
 async function deleteSave() {
