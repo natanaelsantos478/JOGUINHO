@@ -508,74 +508,34 @@ function uiRecruit(type) {
 
   deductRecruitCost(type, state.resources);
   const unit = createUnit(type, state.player_country, 0, 0, 1);
-
   closeRecruitModal();
   updateHeader(state);
 
-  // Voa para o país e abre seletor de distrito
   flyToCountry(state.player_country);
-  setTimeout(() => openDistrictPicker(unit), 400);
-}
-
-// ── Seletor de Distrito ────────────────────────────────────
-let _pendingDistrictUnit = null;
-
-function openDistrictPicker(unit) {
-  _pendingDistrictUnit = unit;
-  const state = window.GS;
-  const districts = (typeof getCountryDistricts === 'function')
-    ? getCountryDistricts(state.player_country)
-    : [];
-
-  document.getElementById('district-country-name').textContent = state.player_country.toUpperCase();
-
-  const img = _unitImgHtml(unit.type, 48);
-  const def = UNIT_DEFS[unit.type];
-  document.getElementById('district-unit-info').innerHTML =
-    `<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">${img}<div><div style="font-family:'Cinzel',serif;color:var(--gold);font-size:0.9rem;">${unit.name}</div><div style="font-size:0.78rem;color:var(--muted)">${def.label}</div></div></div>`;
-
-  // Grid 3×3
-  const grid = document.getElementById('district-grid');
-  grid.innerHTML = districts.map(d => `
-    <button class="btn-primary district-btn" onclick="pickDistrict(${d.lat}, ${d.lng})">
-      ${d.name}
-    </button>
-  `).join('');
-
-  document.getElementById('district-modal').classList.add('visible');
-}
-
-function pickDistrict(lat, lng) {
-  const unit = _pendingDistrictUnit;
-  if (!unit) return;
-  _pendingDistrictUnit = null;
-  document.getElementById('district-modal').classList.remove('visible');
-
-  unit.lat = lat;
-  unit.lng = lng;
-  const state = window.GS;
-  if (!state.units) state.units = [];
-  state.units.push(unit);
-  state.game_log.unshift(`[Turno ${state.turn}] Recrutado: ${UNIT_DEFS[unit.type].label} — ${unit.name}`);
-  renderUnits(state);
-  renderPanelForTab('military');
-  saveGame(state);
-  notify(`${unit.name} posicionado`, 'info');
-  // Voa até a unidade
-  flyTo(lat, lng, 5);
-}
-
-function cancelDistrictPicker() {
-  if (_pendingDistrictUnit) {
-    // Reembolso
-    const state = window.GS;
-    const def = UNIT_DEFS[_pendingDistrictUnit.type];
-    state.resources.money    += def.cost;
-    state.resources.manpower += def.manpower;
-    updateHeader(state);
-    _pendingDistrictUnit = null;
-  }
-  document.getElementById('district-modal').classList.remove('visible');
+  setTimeout(() => {
+    enterPlaceUnitMode(
+      unit,
+      (lat, lng) => {
+        unit.lat = lat; unit.lng = lng;
+        if (!state.units) state.units = [];
+        state.units.push(unit);
+        state.game_log.unshift(`[Turno ${state.turn}] Recrutado: ${UNIT_DEFS[unit.type].label} — ${unit.name}`);
+        renderUnits(state);
+        renderPanelForTab('military');
+        saveGame(state);
+        notify(`${unit.name} posicionado`, 'info');
+        flyTo(lat, lng, 6);
+      },
+      () => {
+        const def = UNIT_DEFS[unit.type];
+        state.resources.money    += def.cost;
+        state.resources.manpower += def.manpower;
+        updateHeader(state);
+        notify('Recrutamento cancelado — recursos reembolsados', 'info');
+      },
+      state.player_country
+    );
+  }, 600);
 }
 
 function uiStartBuild(type) {

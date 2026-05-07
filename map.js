@@ -8,7 +8,9 @@ let _unitsLayer = null;
 let _structuresLayer = null;
 let _routeLines = [];
 let _geojsonData = null;
-let _placeUnitMode = null; // { unit, onPlace } — set when player clicks "Recrutar"
+let _placeUnitMode = null;      // { unit, onPlace, onCancel, countryName }
+let _placeHighlightLayer = null;
+let _placeHintEl = null;
 
 // ── Initialise main game map ───────────────────────────────
 async function initMap(savedView) {
@@ -38,9 +40,19 @@ async function initMap(savedView) {
 
   _map.on('click', (e) => {
     if (_placeUnitMode) {
-      const { unit, onPlace } = _placeUnitMode;
+      const { onPlace, countryName } = _placeUnitMode;
+      const lat = e.latlng.lat, lng = e.latlng.lng;
+      if (countryName && _geojsonData) {
+        const feature = _geojsonData.features.find(f =>
+          (f.properties.ADMIN || f.properties.name || '') === countryName
+        );
+        if (feature && !_pointInFeature(lat, lng, feature)) {
+          if (typeof notify === 'function') notify(`Posicione a unidade dentro de ${countryName}`, 'error');
+          return;
+        }
+      }
       _cancelPlaceMode();
-      onPlace(e.latlng.lat, e.latlng.lng);
+      onPlace(lat, lng);
       return;
     }
     if (window._selectedUnitId) {
@@ -62,14 +74,100 @@ async function initMap(savedView) {
 }
 
 // ── Place-unit mode ────────────────────────────────────────
-function enterPlaceUnitMode(unit, onPlace) {
-  _placeUnitMode = { unit, onPlace };
+function enterPlaceUnitMode(unit, onPlace, onCancel, countryName) {
+  _placeUnitMode = { unit, onPlace, onCancel: onCancel || null, countryName: countryName || null };
   if (_map) _map.getContainer().style.cursor = 'crosshair';
+  if (countryName) {
+    _showPlaceHighlight(countryName);
+    _showPlaceHint(unit.name, countryName);
+  }
+}
+
+function cancelPlaceUnitMode() {
+  const mode = _placeUnitMode;
+  _cancelPlaceMode();
+  if (mode && mode.onCancel) mode.onCancel();
 }
 
 function _cancelPlaceMode() {
   _placeUnitMode = null;
   if (_map) _map.getContainer().style.cursor = '';
+  _clearPlaceHighlight();
+  _clearPlaceHint();
+}
+
+function _showPlaceHighlight(countryName) {
+  if (!_geojsonData || !_map) return;
+  const feature = _geojsonData.features.find(f =>
+    (f.properties.ADMIN || f.properties.name || '') === countryName
+  );
+  if (!feature) return;
+  _placeHighlightLayer = L.geoJSON(feature, {
+    style: { color: '#c8a84b', weight: 2, fillColor: '#c8a84b', fillOpacity: 0.12, dashArray: '6 4' }
+  }).addTo(_map);
+}
+
+function _clearPlaceHighlight() {
+  if (_placeHighlightLayer && _map) {
+    _map.removeLayer(_placeHighlightLayer);
+    _placeHighlightLayer = null;
+  }
+}
+
+function _showPlaceHint(unitName, countryName) {
+  if (!_map) return;
+  _clearPlaceHint();
+  const el = document.createElement('div');
+  el.id = 'place-unit-hint';
+  el.style.cssText = [
+    'position:absolute', 'bottom:50px', 'left:50%', 'transform:translateX(-50%)',
+    'background:rgba(15,19,24,0.94)', 'border:1px solid #c8a84b', 'border-radius:6px',
+    'padding:10px 16px', 'z-index:1000', 'display:flex', 'align-items:center', 'gap:12px',
+    'font-family:Cinzel,serif', 'color:#c8a84b', 'font-size:0.8rem', 'white-space:nowrap',
+    'pointer-events:auto', 'box-shadow:0 4px 20px rgba(0,0,0,0.6)'
+  ].join(';');
+  el.innerHTML = `
+    <span>Clique em <strong>${countryName}</strong> para posicionar <strong>${unitName}</strong></span>
+    <button onclick="cancelPlaceUnitMode()" style="
+      background:#1a0508;border:1px solid rgba(192,37,58,0.7);color:#c0253a;
+      font-family:Cinzel,serif;font-size:0.72rem;padding:4px 10px;
+      border-radius:3px;cursor:pointer;letter-spacing:0.5px;
+    ">CANCELAR</button>
+  `;
+  const container = _map.getContainer();
+  container.style.position = 'relative';
+  container.appendChild(el);
+  _placeHintEl = el;
+}
+
+function _clearPlaceHint() {
+  if (_placeHintEl) { _placeHintEl.remove(); _placeHintEl = null; }
+}
+
+// ── Point-in-polygon (ray-casting) for GeoJSON ────────────
+function _pointInRing(lat, lng, ring) {
+  let inside = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const xi = ring[i][0], yi = ring[i][1];
+    const xj = ring[j][0], yj = ring[j][1];
+    if (((yi > lat) !== (yj > lat)) && (lng < (xj - xi) * (lat - yi) / (yj - yi) + xi)) {
+      inside = !inside;
+    }
+  }
+  return inside;
+}
+
+function _pointInFeature(lat, lng, feature) {
+  const geom = feature && feature.geometry;
+  if (!geom) return false;
+  const inPoly = (poly) => {
+    if (!_pointInRing(lat, lng, poly[0])) return false;
+    for (let h = 1; h < poly.length; h++) { if (_pointInRing(lat, lng, poly[h])) return false; }
+    return true;
+  };
+  if (geom.type === 'Polygon')      return inPoly(geom.coordinates);
+  if (geom.type === 'MultiPolygon') return geom.coordinates.some(p => inPoly(p));
+  return false;
 }
 
 // ── Country selection map (modal) ──────────────────────────
@@ -372,53 +470,6 @@ function flyTo(lat, lng, zoom) {
 
 function invalidateMap() {
   if (_map) _map.invalidateSize();
-}
-
-// ── Country districts (derived from GeoJSON bounding box) ─
-function getCountryDistricts(countryName) {
-  if (_geojsonData) {
-    try {
-      const feature = _geojsonData.features.find(f =>
-        (f.properties.ADMIN || f.properties.name || '') === countryName
-      );
-      if (feature) {
-        const bounds = L.geoJSON(feature).getBounds();
-        if (bounds.isValid()) {
-          const s = bounds.getSouth(), n = bounds.getNorth();
-          const w = bounds.getWest(),  e = bounds.getEast();
-          const midLat = (s + n) / 2,  midLng = (w + e) / 2;
-          const h = n - s, ww = e - w;
-          return [
-            { name: 'Noroeste', lat: s + h * 0.78, lng: w + ww * 0.22 },
-            { name: 'Norte',    lat: s + h * 0.82, lng: midLng },
-            { name: 'Nordeste', lat: s + h * 0.78, lng: w + ww * 0.78 },
-            { name: 'Oeste',    lat: midLat,        lng: w + ww * 0.18 },
-            { name: 'Capital',  lat: midLat,        lng: midLng },
-            { name: 'Leste',    lat: midLat,        lng: w + ww * 0.82 },
-            { name: 'Sudoeste', lat: s + h * 0.22,  lng: w + ww * 0.22 },
-            { name: 'Sul',      lat: s + h * 0.18,  lng: midLng },
-            { name: 'Sudeste',  lat: s + h * 0.22,  lng: w + ww * 0.78 },
-          ];
-        }
-      }
-    } catch (e) { console.warn('getCountryDistricts error:', e); }
-  }
-  // Fallback com centroid
-  const c = (typeof AI_CENTROIDS !== 'undefined' && AI_CENTROIDS[countryName])
-    ? AI_CENTROIDS[countryName]
-    : _FALLBACK_CENTROIDS[countryName] || { lat: 0, lng: 0 };
-  const d = 4;
-  return [
-    { name: 'Noroeste', lat: c.lat + d, lng: c.lng - d },
-    { name: 'Norte',    lat: c.lat + d, lng: c.lng },
-    { name: 'Nordeste', lat: c.lat + d, lng: c.lng + d },
-    { name: 'Oeste',    lat: c.lat,     lng: c.lng - d },
-    { name: 'Capital',  lat: c.lat,     lng: c.lng },
-    { name: 'Leste',    lat: c.lat,     lng: c.lng + d },
-    { name: 'Sudoeste', lat: c.lat - d, lng: c.lng - d },
-    { name: 'Sul',      lat: c.lat - d, lng: c.lng },
-    { name: 'Sudeste',  lat: c.lat - d, lng: c.lng + d },
-  ];
 }
 
 // ── Country list for selection modal ──────────────────────
