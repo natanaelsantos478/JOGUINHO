@@ -167,6 +167,14 @@ function createStructureIcon(structType, isComplete) {
   });
 }
 
+// Exposta globalmente para uso nos painéis
+function getUnitSpriteDataUrl(unitType, size) {
+  size = size || 36;
+  const map = UNIT_SPRITE_MAP[unitType];
+  if (!map || !map.sheet) return null;
+  return _renderSpriteToDataUrl(map.sheet, map.sprite, size);
+}
+
 function getFlagUrl(iso2) {
   if (!iso2) return '';
   return `https://flagcdn.com/w80/${iso2.toLowerCase()}.png`;

@@ -6,6 +6,19 @@ let _activeTab = 'info';
 let _selectedCountryForModal = null;
 let _notifTimer = null;
 
+// ── Sprite helper: retorna <img> ou div texto ──────────────
+function _unitImgHtml(unitType, size) {
+  size = size || 40;
+  const dataUrl = (typeof getUnitSpriteDataUrl === 'function')
+    ? getUnitSpriteDataUrl(unitType, size) : null;
+  const map = (typeof UNIT_SPRITE_MAP !== 'undefined') ? UNIT_SPRITE_MAP[unitType] : null;
+  const short = map ? map.short : '?';
+  if (dataUrl) {
+    return `<img src="${dataUrl}" width="${size}" height="${size}" style="border-radius:50%;border:2px solid var(--border);flex-shrink:0;" />`;
+  }
+  return `<div style="width:${size}px;height:${size}px;border-radius:50%;background:#0b0e13;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:8px;color:var(--gold);font-family:'Cinzel',serif;font-weight:700;flex-shrink:0;">${short}</div>`;
+}
+
 // ── Boot UI ────────────────────────────────────────────────
 function showGameUI() {
   document.getElementById('loading-screen').style.display = 'none';
@@ -120,17 +133,22 @@ function renderMilitaryPanel(state) {
     const xpPct = u.level < 5 ? Math.round((u.xp / (XP_THRESHOLDS[u.level] || 1)) * 100) : 100;
     return `
       <div class="unit-card ${selected ? 'selected' : ''}" onclick="uiSelectUnit('${u.id}')">
-        <div class="unit-card-header">
-          <span class="unit-name">${u.name}</span>
-          <span class="unit-level">Lv${u.level} ${levelName(u.level)}</span>
+        <div class="unit-card-header" style="gap:10px;align-items:flex-start;">
+          ${_unitImgHtml(u.type, 44)}
+          <div style="flex:1;min-width:0;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;">
+              <span class="unit-name" style="font-size:0.78rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${u.name}</span>
+              <span class="unit-level">Lv${u.level}</span>
+            </div>
+            <div style="font-size:0.7rem;color:var(--muted);margin-bottom:5px">${def ? def.label : u.type} — ${levelName(u.level)}</div>
+            <div class="unit-bars">
+              <div class="bar-row"><span class="bar-label">HP</span><div class="bar-track"><div class="bar-fill hp" style="width:${hpPct}%"></div></div><span style="font-size:0.68rem;color:var(--muted)">${hpPct}%</span></div>
+              <div class="bar-row"><span class="bar-label">EN</span><div class="bar-track"><div class="bar-fill energy" style="width:${enPct}%"></div></div><span style="font-size:0.68rem;color:var(--muted)">${enPct}%</span></div>
+              <div class="bar-row"><span class="bar-label">XP</span><div class="bar-track"><div class="bar-fill xp" style="width:${xpPct}%"></div></div><span style="font-size:0.68rem;color:var(--muted)">${u.xp}xp</span></div>
+            </div>
+          </div>
         </div>
-        <div style="font-size:0.72rem;color:var(--muted);margin-bottom:6px">${def ? def.label : u.type}</div>
-        <div class="unit-bars">
-          <div class="bar-row"><span class="bar-label">HP</span><div class="bar-track"><div class="bar-fill hp" style="width:${hpPct}%"></div></div><span style="font-size:0.7rem;color:var(--muted)">${hpPct}%</span></div>
-          <div class="bar-row"><span class="bar-label">EN</span><div class="bar-track"><div class="bar-fill energy" style="width:${enPct}%"></div></div><span style="font-size:0.7rem;color:var(--muted)">${enPct}%</span></div>
-          <div class="bar-row"><span class="bar-label">XP</span><div class="bar-track"><div class="bar-fill xp" style="width:${xpPct}%"></div></div><span style="font-size:0.7rem;color:var(--muted)">${u.xp}xp</span></div>
-        </div>
-        <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;">
+        <div style="margin-top:8px;display:flex;gap:6px;">
           <button class="btn-primary" style="flex:1;padding:4px 6px;font-size:0.7rem" onclick="uiSelectUnit('${u.id}');event.stopPropagation()">MOVER</button>
           <button class="btn-primary btn-danger" style="flex:1;padding:4px 6px;font-size:0.7rem" onclick="uiDisbandUnit('${u.id}');event.stopPropagation()">DISPENSAR</button>
         </div>
@@ -341,9 +359,10 @@ function openRecruitModal() {
         const ok  = canRecruit(type, state.resources);
         return `
           <div class="recruit-item${ok ? '' : ' disabled-item'}" onclick="${ok ? `uiRecruit('${type}')` : ''}">
-            <div class="recruit-item-info">
+            ${_unitImgHtml(type, 40)}
+            <div class="recruit-item-info" style="margin-left:10px;flex:1;">
               <div style="font-size:0.85rem">${def.label} <span style="font-size:0.7rem;color:var(--muted)">(Tier ${def.tier})</span></div>
-              <div style="font-size:0.75rem;color:var(--muted)">ATQ:${def.atk} DEF:${def.def} VEL:${def.speed}km/h</div>
+              <div style="font-size:0.72rem;color:var(--muted)">ATQ:${def.atk} DEF:${def.def} VEL:${def.speed}km/h</div>
             </div>
             <div class="recruit-item-cost">${ok ? '' : 'X '}<span>${def.cost} MON</span> / ${def.manpower} MAN</div>
           </div>
@@ -492,19 +511,71 @@ function uiRecruit(type) {
 
   closeRecruitModal();
   updateHeader(state);
-  notify(`${UNIT_DEFS[type].label} recrutado — clique no mapa para posicionar`, 'info');
 
-  enterPlaceUnitMode(unit, (lat, lng) => {
-    unit.lat = lat;
-    unit.lng = lng;
-    if (!state.units) state.units = [];
-    state.units.push(unit);
-    state.game_log.unshift(`[Turno ${state.turn}] Recrutado: ${UNIT_DEFS[type].label} — ${unit.name}`);
-    renderUnits(state);
-    renderPanelForTab('military');
-    saveGame(state);
-    notify(`${unit.name} posicionado no mapa`, 'info');
-  });
+  // Voa para o país e abre seletor de distrito
+  flyToCountry(state.player_country);
+  setTimeout(() => openDistrictPicker(unit), 400);
+}
+
+// ── Seletor de Distrito ────────────────────────────────────
+let _pendingDistrictUnit = null;
+
+function openDistrictPicker(unit) {
+  _pendingDistrictUnit = unit;
+  const state = window.GS;
+  const districts = (typeof getCountryDistricts === 'function')
+    ? getCountryDistricts(state.player_country)
+    : [];
+
+  document.getElementById('district-country-name').textContent = state.player_country.toUpperCase();
+
+  const img = _unitImgHtml(unit.type, 48);
+  const def = UNIT_DEFS[unit.type];
+  document.getElementById('district-unit-info').innerHTML =
+    `<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">${img}<div><div style="font-family:'Cinzel',serif;color:var(--gold);font-size:0.9rem;">${unit.name}</div><div style="font-size:0.78rem;color:var(--muted)">${def.label}</div></div></div>`;
+
+  // Grid 3×3
+  const grid = document.getElementById('district-grid');
+  grid.innerHTML = districts.map(d => `
+    <button class="btn-primary district-btn" onclick="pickDistrict(${d.lat}, ${d.lng})">
+      ${d.name}
+    </button>
+  `).join('');
+
+  document.getElementById('district-modal').classList.add('visible');
+}
+
+function pickDistrict(lat, lng) {
+  const unit = _pendingDistrictUnit;
+  if (!unit) return;
+  _pendingDistrictUnit = null;
+  document.getElementById('district-modal').classList.remove('visible');
+
+  unit.lat = lat;
+  unit.lng = lng;
+  const state = window.GS;
+  if (!state.units) state.units = [];
+  state.units.push(unit);
+  state.game_log.unshift(`[Turno ${state.turn}] Recrutado: ${UNIT_DEFS[unit.type].label} — ${unit.name}`);
+  renderUnits(state);
+  renderPanelForTab('military');
+  saveGame(state);
+  notify(`${unit.name} posicionado`, 'info');
+  // Voa até a unidade
+  flyTo(lat, lng, 5);
+}
+
+function cancelDistrictPicker() {
+  if (_pendingDistrictUnit) {
+    // Reembolso
+    const state = window.GS;
+    const def = UNIT_DEFS[_pendingDistrictUnit.type];
+    state.resources.money    += def.cost;
+    state.resources.manpower += def.manpower;
+    updateHeader(state);
+    _pendingDistrictUnit = null;
+  }
+  document.getElementById('district-modal').classList.remove('visible');
 }
 
 function uiStartBuild(type) {

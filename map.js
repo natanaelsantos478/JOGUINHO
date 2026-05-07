@@ -374,6 +374,53 @@ function invalidateMap() {
   if (_map) _map.invalidateSize();
 }
 
+// ── Country districts (derived from GeoJSON bounding box) ─
+function getCountryDistricts(countryName) {
+  if (_geojsonData) {
+    try {
+      const feature = _geojsonData.features.find(f =>
+        (f.properties.ADMIN || f.properties.name || '') === countryName
+      );
+      if (feature) {
+        const bounds = L.geoJSON(feature).getBounds();
+        if (bounds.isValid()) {
+          const s = bounds.getSouth(), n = bounds.getNorth();
+          const w = bounds.getWest(),  e = bounds.getEast();
+          const midLat = (s + n) / 2,  midLng = (w + e) / 2;
+          const h = n - s, ww = e - w;
+          return [
+            { name: 'Noroeste', lat: s + h * 0.78, lng: w + ww * 0.22 },
+            { name: 'Norte',    lat: s + h * 0.82, lng: midLng },
+            { name: 'Nordeste', lat: s + h * 0.78, lng: w + ww * 0.78 },
+            { name: 'Oeste',    lat: midLat,        lng: w + ww * 0.18 },
+            { name: 'Capital',  lat: midLat,        lng: midLng },
+            { name: 'Leste',    lat: midLat,        lng: w + ww * 0.82 },
+            { name: 'Sudoeste', lat: s + h * 0.22,  lng: w + ww * 0.22 },
+            { name: 'Sul',      lat: s + h * 0.18,  lng: midLng },
+            { name: 'Sudeste',  lat: s + h * 0.22,  lng: w + ww * 0.78 },
+          ];
+        }
+      }
+    } catch (e) { console.warn('getCountryDistricts error:', e); }
+  }
+  // Fallback com centroid
+  const c = (typeof AI_CENTROIDS !== 'undefined' && AI_CENTROIDS[countryName])
+    ? AI_CENTROIDS[countryName]
+    : _FALLBACK_CENTROIDS[countryName] || { lat: 0, lng: 0 };
+  const d = 4;
+  return [
+    { name: 'Noroeste', lat: c.lat + d, lng: c.lng - d },
+    { name: 'Norte',    lat: c.lat + d, lng: c.lng },
+    { name: 'Nordeste', lat: c.lat + d, lng: c.lng + d },
+    { name: 'Oeste',    lat: c.lat,     lng: c.lng - d },
+    { name: 'Capital',  lat: c.lat,     lng: c.lng },
+    { name: 'Leste',    lat: c.lat,     lng: c.lng + d },
+    { name: 'Sudoeste', lat: c.lat - d, lng: c.lng - d },
+    { name: 'Sul',      lat: c.lat - d, lng: c.lng },
+    { name: 'Sudeste',  lat: c.lat - d, lng: c.lng + d },
+  ];
+}
+
 // ── Country list for selection modal ──────────────────────
 function getAllCountryNames() {
   if (!_geojsonData) return [];

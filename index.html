@@ -239,15 +239,6 @@
       padding: 24px; width: 420px; max-width: 95vw;
     }
     #recruit-inner h3 { font-family: 'Cinzel', serif; color: var(--gold); margin-bottom: 16px; letter-spacing: 2px; }
-    .recruit-item {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 8px 0; border-bottom: 1px solid var(--border); cursor: pointer;
-      transition: color 0.15s;
-    }
-    .recruit-item:hover { color: var(--gold); }
-    .recruit-item-info { font-size: 0.85rem; }
-    .recruit-item-cost { font-size: 0.8rem; color: var(--muted); }
-    .recruit-item-cost span { color: var(--gold); }
     .recruit-close { margin-top: 14px; }
 
     /* ─── BUILD MODAL ─── */
@@ -262,7 +253,29 @@
     }
     #build-inner h3 { font-family: 'Cinzel', serif; color: var(--gold); margin-bottom: 16px; letter-spacing: 2px; }
 
-    /* ─── NOTIFICATION ─── */
+    /* ─── DISTRICT PICKER MODAL ─── */
+    #district-modal {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.80);
+      display: none; z-index: 1600; align-items: center; justify-content: center;
+    }
+    #district-modal.visible { display: flex; }
+    #district-inner {
+      background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
+      padding: 24px; width: 380px; max-width: 95vw;
+    }
+    #district-inner h3 { font-family: 'Cinzel', serif; color: var(--gold); letter-spacing: 2px; margin-bottom: 4px; }
+    #district-inner .sub { color: var(--muted); font-size: 0.8rem; margin-bottom: 14px; }
+    #district-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 12px;
+    }
+    .district-btn { text-align: center; padding: 10px 4px; font-size: 0.72rem; }
+
+    /* ─── RECRUIT ITEM ─── */
+    .recruit-item { display: flex; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); cursor: pointer; transition: color 0.15s; }
+    .recruit-item:hover { color: var(--gold); }
+    .recruit-item-info { font-size: 0.85rem; }
+    .recruit-item-cost { font-size: 0.8rem; color: var(--muted); margin-left: auto; text-align: right; }
+    .recruit-item-cost span { color: var(--gold); }
     #notification {
       position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
       background: var(--panel); border: 1px solid var(--border); border-radius: 6px;
@@ -420,6 +433,17 @@
       <h3>CONSTRUIR ESTRUTURA</h3>
       <div id="build-list"></div>
       <button class="btn-primary recruit-close" onclick="closeBuildModal()">FECHAR</button>
+    </div>
+  </div>
+
+  <!-- DISTRICT PICKER MODAL -->
+  <div id="district-modal">
+    <div id="district-inner">
+      <h3>ESCOLHER DISTRITO</h3>
+      <div class="sub">Selecione a regiao do pais onde deseja posicionar a unidade em <span id="district-country-name"></span></div>
+      <div id="district-unit-info"></div>
+      <div id="district-grid"></div>
+      <button class="btn-primary btn-danger" style="width:100%;margin-top:4px" onclick="cancelDistrictPicker()">CANCELAR (reembolso)</button>
     </div>
   </div>
 
