@@ -113,24 +113,27 @@ function _cancelPlaceMode() {
 async function _loadCountryProvinces(countryName) {
   if (_provincesCache[countryName] !== undefined) return _provincesCache[countryName];
 
-  const feature = _geojsonData && _geojsonData.features.find(f =>
+  const feat = _geojsonData && _geojsonData.features.find(f =>
     (f.properties.ADMIN || f.properties.name || '') === countryName
   );
-  const iso3 = feature && feature.properties['ISO3166-1-Alpha-3'];
-  if (!iso3 || iso3 === '-99') { _provincesCache[countryName] = null; return null; }
+  const iso2 = (feat && feat.properties['ISO3166-1-Alpha-2'] || '').toLowerCase();
+  if (!iso2 || iso2 === '-99' || iso2.length !== 2) { _provincesCache[countryName] = null; return null; }
 
-  const url = `https://raw.githubusercontent.com/wmgeolab/geoBoundaries/main/releaseData/gbOpen/${iso3}/ADM1/geoBoundaries-${iso3}-ADM1_simplified.geojson`;
+  const url = `https://cdn.jsdelivr.net/npm/@highcharts/map-collection@2/countries/${iso2}/${iso2}-all.topo.json`;
   try {
     const ctrl = new AbortController();
-    const tid  = setTimeout(() => ctrl.abort(), 10000);
+    const tid  = setTimeout(() => ctrl.abort(), 12000);
     const res  = await fetch(url, { signal: ctrl.signal });
     clearTimeout(tid);
     if (!res.ok) throw new Error(res.status);
-    const data = await res.json();
+    const topo = await res.json();
+    // Convert TopoJSON → GeoJSON using topojson-client
+    const key  = Object.keys(topo.objects)[0];
+    const data = window.topojson.feature(topo, topo.objects[key]);
     _provincesCache[countryName] = data;
     return data;
   } catch (e) {
-    console.warn(`Provinces unavailable for ${countryName} (${iso3}):`, e.message);
+    console.warn(`Provinces unavailable for ${countryName} (${iso2}):`, e.message);
     _provincesCache[countryName] = null;
     return null;
   }
@@ -142,14 +145,16 @@ function _showProvincesLayer(geojson) {
   _provincesLayer = L.geoJSON(geojson, {
     style: { color: '#c8a84b', weight: 1.5, fillColor: '#c8a84b', fillOpacity: 0.07 },
     onEachFeature(feature, layer) {
-      const name = feature.properties.shapeName || feature.properties.NAME_1 || feature.properties.name || '';
+      const name = feature.properties.name || feature.properties['woe-name'] || '';
       layer.on('click', (e) => {
         if (!_placeUnitMode) return;
         L.DomEvent.stopPropagation(e);
-        const center = layer.getBounds().getCenter();
+        const p    = feature.properties;
+        const lat  = p['hc-middle-lat'] || parseFloat(p.latitude  || 0) || layer.getBounds().getCenter().lat;
+        const lng  = p['hc-middle-lon'] || parseFloat(p.longitude || 0) || layer.getBounds().getCenter().lng;
         const cb = _placeUnitMode.onPlace;
         _cancelPlaceMode();
-        cb(center.lat, center.lng);
+        cb(lat, lng);
       });
       layer.on('mouseover', function(e) {
         L.DomEvent.stopPropagation(e);
