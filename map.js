@@ -11,6 +11,8 @@ let _geojsonData = null;
 let _placeUnitMode = null;      // { unit, onPlace, onCancel, countryName }
 let _placeHighlightLayer = null;
 let _placeHintEl = null;
+let _provincesLayer = null;
+const _provincesCache = {};     // iso3 → GeoJSON (null = failed)
 
 // ── Initialise main game map ───────────────────────────────
 async function initMap(savedView) {
@@ -74,12 +76,22 @@ async function initMap(savedView) {
 }
 
 // ── Place-unit mode ────────────────────────────────────────
-function enterPlaceUnitMode(unit, onPlace, onCancel, countryName) {
+async function enterPlaceUnitMode(unit, onPlace, onCancel, countryName) {
   _placeUnitMode = { unit, onPlace, onCancel: onCancel || null, countryName: countryName || null };
   if (_map) _map.getContainer().style.cursor = 'crosshair';
-  if (countryName) {
-    _showPlaceHighlight(countryName);
-    _showPlaceHint(unit.name, countryName);
+
+  if (!countryName) return;
+  _showPlaceHighlight(countryName);
+  _showPlaceHint(unit.name, countryName, 'loading');
+
+  const geojson = await _loadCountryProvinces(countryName);
+  if (!_placeUnitMode) return; // cancelled while loading
+
+  if (geojson && geojson.features && geojson.features.length > 0) {
+    _showProvincesLayer(geojson);
+    _showPlaceHint(unit.name, countryName, 'ready');
+  } else {
+    _showPlaceHint(unit.name, countryName, 'fallback');
   }
 }
 
@@ -93,7 +105,71 @@ function _cancelPlaceMode() {
   _placeUnitMode = null;
   if (_map) _map.getContainer().style.cursor = '';
   _clearPlaceHighlight();
+  _clearProvincesLayer();
   _clearPlaceHint();
+}
+
+// ── Province layer ─────────────────────────────────────────
+async function _loadCountryProvinces(countryName) {
+  if (_provincesCache[countryName] !== undefined) return _provincesCache[countryName];
+
+  const feature = _geojsonData && _geojsonData.features.find(f =>
+    (f.properties.ADMIN || f.properties.name || '') === countryName
+  );
+  const iso3 = feature && feature.properties['ISO3166-1-Alpha-3'];
+  if (!iso3 || iso3 === '-99') { _provincesCache[countryName] = null; return null; }
+
+  const url = `https://raw.githubusercontent.com/wmgeolab/geoBoundaries/main/releaseData/gbOpen/${iso3}/ADM1/geoBoundaries-${iso3}-ADM1_simplified.geojson`;
+  try {
+    const ctrl = new AbortController();
+    const tid  = setTimeout(() => ctrl.abort(), 10000);
+    const res  = await fetch(url, { signal: ctrl.signal });
+    clearTimeout(tid);
+    if (!res.ok) throw new Error(res.status);
+    const data = await res.json();
+    _provincesCache[countryName] = data;
+    return data;
+  } catch (e) {
+    console.warn(`Provinces unavailable for ${countryName} (${iso3}):`, e.message);
+    _provincesCache[countryName] = null;
+    return null;
+  }
+}
+
+function _showProvincesLayer(geojson) {
+  _clearProvincesLayer();
+  if (!_map) return;
+  _provincesLayer = L.geoJSON(geojson, {
+    style: { color: '#c8a84b', weight: 1.5, fillColor: '#c8a84b', fillOpacity: 0.07 },
+    onEachFeature(feature, layer) {
+      const name = feature.properties.shapeName || feature.properties.NAME_1 || feature.properties.name || '';
+      layer.on('click', (e) => {
+        if (!_placeUnitMode) return;
+        L.DomEvent.stopPropagation(e);
+        const center = layer.getBounds().getCenter();
+        const cb = _placeUnitMode.onPlace;
+        _cancelPlaceMode();
+        cb(center.lat, center.lng);
+      });
+      layer.on('mouseover', function(e) {
+        L.DomEvent.stopPropagation(e);
+        this.setStyle({ fillOpacity: 0.30, color: '#e8c860', weight: 2 });
+        if (name) this.bindTooltip(
+          `<div style="font-family:'Cinzel',serif;font-size:0.8rem;color:#c8a84b;background:#0f1318;border:1px solid #1e2535;padding:3px 8px;border-radius:3px;">${name}</div>`,
+          { sticky: true, className: '' }
+        ).openTooltip();
+      });
+      layer.on('mouseout', function(e) {
+        L.DomEvent.stopPropagation(e);
+        this.setStyle({ fillOpacity: 0.07, color: '#c8a84b', weight: 1.5 });
+        this.closeTooltip();
+      });
+    }
+  }).addTo(_map);
+}
+
+function _clearProvincesLayer() {
+  if (_provincesLayer && _map) { _map.removeLayer(_provincesLayer); _provincesLayer = null; }
 }
 
 function _showPlaceHighlight(countryName) {
@@ -103,40 +179,33 @@ function _showPlaceHighlight(countryName) {
   );
   if (!feature) return;
   _placeHighlightLayer = L.geoJSON(feature, {
-    style: { color: '#c8a84b', weight: 2, fillColor: '#c8a84b', fillOpacity: 0.12, dashArray: '6 4' }
+    style: { color: '#c8a84b', weight: 2, fillColor: '#c8a84b', fillOpacity: 0.04, dashArray: '6 4' }
   }).addTo(_map);
 }
 
 function _clearPlaceHighlight() {
-  if (_placeHighlightLayer && _map) {
-    _map.removeLayer(_placeHighlightLayer);
-    _placeHighlightLayer = null;
-  }
+  if (_placeHighlightLayer && _map) { _map.removeLayer(_placeHighlightLayer); _placeHighlightLayer = null; }
 }
 
-function _showPlaceHint(unitName, countryName) {
-  if (!_map) return;
+function _showPlaceHint(unitName, countryName, state) {
   _clearPlaceHint();
+  if (!_map) return;
+  let msg;
+  if (state === 'loading')  msg = `Carregando distritos de <strong>${countryName}</strong>...`;
+  else if (state === 'ready') msg = `Clique em um distrito de <strong>${countryName}</strong> para posicionar <strong>${unitName}</strong>`;
+  else msg = `Clique dentro de <strong>${countryName}</strong> para posicionar <strong>${unitName}</strong>`;
+
   const el = document.createElement('div');
   el.id = 'place-unit-hint';
   el.style.cssText = [
     'position:absolute', 'bottom:50px', 'left:50%', 'transform:translateX(-50%)',
     'background:rgba(15,19,24,0.94)', 'border:1px solid #c8a84b', 'border-radius:6px',
-    'padding:10px 16px', 'z-index:1000', 'display:flex', 'align-items:center', 'gap:12px',
+    'padding:10px 16px', 'z-index:2000', 'display:flex', 'align-items:center', 'gap:12px',
     'font-family:Cinzel,serif', 'color:#c8a84b', 'font-size:0.8rem', 'white-space:nowrap',
-    'pointer-events:auto', 'box-shadow:0 4px 20px rgba(0,0,0,0.6)'
+    'pointer-events:auto', 'box-shadow:0 4px 20px rgba(0,0,0,0.7)'
   ].join(';');
-  el.innerHTML = `
-    <span>Clique em <strong>${countryName}</strong> para posicionar <strong>${unitName}</strong></span>
-    <button onclick="cancelPlaceUnitMode()" style="
-      background:#1a0508;border:1px solid rgba(192,37,58,0.7);color:#c0253a;
-      font-family:Cinzel,serif;font-size:0.72rem;padding:4px 10px;
-      border-radius:3px;cursor:pointer;letter-spacing:0.5px;
-    ">CANCELAR</button>
-  `;
-  const container = _map.getContainer();
-  container.style.position = 'relative';
-  container.appendChild(el);
+  el.innerHTML = `<span>${msg}</span><button onclick="cancelPlaceUnitMode()" style="background:#1a0508;border:1px solid rgba(192,37,58,0.7);color:#c0253a;font-family:Cinzel,serif;font-size:0.72rem;padding:4px 10px;border-radius:3px;cursor:pointer;letter-spacing:0.5px;">CANCELAR</button>`;
+  _map.getContainer().appendChild(el);
   _placeHintEl = el;
 }
 
