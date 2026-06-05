@@ -117,10 +117,9 @@ async function createWorld(name, hostName) {
     const { data, error } = await _db
       .from('wc_worlds')
       .insert({ name, host_name: hostName })
-      .select()
-      .single();
+      .select('id, name, created_at');
     if (error) { console.warn('createWorld error:', error.message); return null; }
-    return data;
+    return (data && data[0]) ? data[0] : null;
   } catch (e) {
     console.warn('createWorld exception:', e);
     return null;
