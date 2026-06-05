@@ -350,11 +350,15 @@ function renderUnits(state) {
   if (!_map) return;
   _unitsLayer.clearLayers();
 
-  (state.units || []).forEach(unit => {
+  const units = state.units || [];
+  const displayPos = _spreadOverlapPositions(units);
+
+  units.forEach(unit => {
     const isPlayer = unit.country === state.player_country;
     const icon = createUnitIconSync(unit.type, isPlayer, unit.level);
+    const pos = displayPos[unit.id] || [unit.lat, unit.lng];
 
-    const marker = L.marker([unit.lat, unit.lng], {
+    const marker = L.marker(pos, {
       icon,
       title: unit.name,
       zIndexOffset: isPlayer ? 1000 : 0,
@@ -373,6 +377,53 @@ function renderUnits(state) {
     marker.addTo(_unitsLayer);
     unit._marker = marker;
   });
+}
+
+// Groups units within 0.1° of each other and spreads their visual markers
+// side by side. Real lat/lng coordinates are never modified.
+function _spreadOverlapPositions(units) {
+  const THRESH = 0.10;    // degrees — units closer than this form a cluster
+  const STEP   = 0.065;   // degrees lng offset per slot in the row
+
+  const result   = {};
+  const assigned = new Set();
+
+  units.forEach(seed => {
+    if (assigned.has(seed.id)) return;
+
+    // BFS to collect all units transitively close to this seed
+    const cluster = [];
+    const queue = [seed];
+    assigned.add(seed.id);
+    while (queue.length) {
+      const cur = queue.shift();
+      cluster.push(cur);
+      units.forEach(v => {
+        if (assigned.has(v.id)) return;
+        const dlat = cur.lat - v.lat;
+        const dlng = cur.lng - v.lng;
+        if (Math.sqrt(dlat * dlat + dlng * dlng) < THRESH) {
+          assigned.add(v.id);
+          queue.push(v);
+        }
+      });
+    }
+
+    if (cluster.length === 1) {
+      result[seed.id] = [seed.lat, seed.lng];
+      return;
+    }
+
+    // Centroid of the cluster
+    const cLat = cluster.reduce((s, u) => s + u.lat, 0) / cluster.length;
+    const cLng = cluster.reduce((s, u) => s + u.lng, 0) / cluster.length;
+    const half = (cluster.length - 1) / 2;
+    cluster.forEach((u, idx) => {
+      result[u.id] = [cLat, cLng + (idx - half) * STEP];
+    });
+  });
+
+  return result;
 }
 
 function _buildUnitTooltip(unit) {

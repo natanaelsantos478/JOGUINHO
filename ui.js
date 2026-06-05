@@ -525,8 +525,8 @@ function uiRecruit(type) {
   enterPlaceUnitMode(
     unit,
     (lat, lng) => {
-      unit.lat = lat + (Math.random() - 0.5) * 0.5;
-      unit.lng = lng + (Math.random() - 0.5) * 0.5;
+      unit.lat = lat;
+      unit.lng = lng;
       if (!state.units) state.units = [];
       state.units.push(unit);
       state.game_log.unshift(`[Turno ${state.turn}] Recrutado: ${UNIT_DEFS[unit.type].label} — ${unit.name}`);
