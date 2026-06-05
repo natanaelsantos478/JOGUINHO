@@ -32,9 +32,8 @@ async function initMap(savedView) {
     zoomControl: true,
   });
 
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
     attribution: '',
-    subdomains: 'abcd',
     maxZoom: 20,
   }).addTo(_map);
 
@@ -262,8 +261,8 @@ async function initSelectMap() {
     center: [20, 0], zoom: 2, minZoom: 1, maxZoom: 5,
     zoomControl: true,
   });
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-    attribution: '', subdomains: 'abcd', maxZoom: 20,
+  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+    attribution: '', maxZoom: 20,
   }).addTo(_selectMap);
 
   _selectLayer = L.layerGroup().addTo(_selectMap);
@@ -309,7 +308,7 @@ function renderCountries(state) {
     style(feature) {
       const name = feature.properties.ADMIN || feature.properties.name || '';
       return {
-        color:        '#1e2535',
+        color:        'rgba(255,255,255,0.5)',
         weight:       1,
         fillColor:    getCountryFillColor(name, state),
         fillOpacity:  getCountryFillOpacity(name, state),
@@ -330,7 +329,7 @@ function renderCountries(state) {
         ).openTooltip();
       });
       layer.on('mouseout', function() {
-        this.setStyle({ weight: 1, color: '#1e2535' });
+        this.setStyle({ weight: 1, color: 'rgba(255,255,255,0.5)' });
         this.closeTooltip();
       });
     }

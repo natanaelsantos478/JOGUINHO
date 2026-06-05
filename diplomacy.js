@@ -135,9 +135,9 @@ function getCountryFillColor(countryName, state) {
 }
 
 function getCountryFillOpacity(countryName, state) {
-  if (countryName === state.player_country) return 0.35;
+  if (countryName === state.player_country) return 0.4;
   const rel = getRelation(state, countryName);
-  if (rel === 'war') return 0.3;
-  if (rel === 'alliance') return 0.25;
-  return 0.1;
+  if (rel === 'war') return 0.35;
+  if (rel === 'alliance') return 0.30;
+  return 0.0;
 }
