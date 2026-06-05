@@ -42,6 +42,7 @@ async function _doSave(state) {
       ...state.resources,
       ministries:   state.ministries,
       satisfaction: state.satisfaction,
+      structures:   state.structures,
     };
 
     const payload = {
@@ -49,7 +50,6 @@ async function _doSave(state) {
       player_country: state.player_country,
       turn:           state.turn,
       resources:      resourcesPayload,
-      structures:     state.structures,
       units:          state.units,
       diplomacy:      state.diplomacy,
       at_war_with:    state.at_war_with,

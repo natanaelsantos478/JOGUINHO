@@ -318,7 +318,7 @@ function renderCountries(state) {
     onEachFeature(feature, layer) {
       const name = feature.properties.ADMIN || feature.properties.name || '';
       layer.on('click', (e) => {
-        if (_placeUnitMode) return; // let click bubble to map for unit placement
+        if (_placeUnitMode || window._selectedUnitId) return; // let click bubble to map
         L.DomEvent.stopPropagation(e);
         onCountryClick(name, state);
       });
@@ -599,7 +599,7 @@ function _addPermProvinceLayer(countryName, geojson) {
     onEachFeature(feature, layer) {
       const name = feature.properties.name || feature.properties['woe-name'] || '';
       layer.on('click', (e) => {
-        if (_placeUnitMode) return;
+        if (_placeUnitMode || window._selectedUnitId) return; // let click bubble to map
         L.DomEvent.stopPropagation(e);
         onProvinceClick(name, countryName);
       });
