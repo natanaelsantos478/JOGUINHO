@@ -51,6 +51,8 @@ let _geminiTurnCounter = 0;
 // ── Chamada à API Gemini ───────────────────────────────────
 async function callGeminiAI(prompt) {
   try {
+    const ctrl = new AbortController();
+    const tid  = setTimeout(() => ctrl.abort(), 8000);
     const res = await fetch(GEMINI_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -58,7 +60,9 @@ async function callGeminiAI(prompt) {
         contents: [{ parts: [{ text: prompt }] }],
         generationConfig: { temperature: 0.8, maxOutputTokens: 600 },
       }),
+      signal: ctrl.signal,
     });
+    clearTimeout(tid);
     if (!res.ok) { console.warn('Gemini HTTP', res.status); return null; }
     const data = await res.json();
     return data?.candidates?.[0]?.content?.parts?.[0]?.text || null;

@@ -53,7 +53,7 @@ function buildStateFromSave(row) {
     turn:           row.turn || 1,
     resources:      baseResources,
     units:          row.units    || [],
-    structures:     res.structures || [],
+    structures:     row.structures || res.structures || [],
     diplomacy:      row.diplomacy  || {},
     at_war_with:    row.at_war_with || [],
     allies:         row.allies      || [],

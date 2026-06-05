@@ -343,7 +343,7 @@ function renderUnits(state) {
 
   (state.units || []).forEach(unit => {
     const isPlayer = unit.country === state.player_country;
-    const icon = createUnitIconSync(unit.type, isPlayer);
+    const icon = createUnitIconSync(unit.type, isPlayer, unit.level);
 
     const marker = L.marker([unit.lat, unit.lng], {
       icon,

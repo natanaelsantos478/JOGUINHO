@@ -89,18 +89,21 @@ function _renderSpriteToDataUrl(sheetName, spriteName, size) {
 }
 
 // Synchronous icon — sprite if available, else short text label
-function createUnitIconSync(unitType, isPlayer) {
+function createUnitIconSync(unitType, isPlayer, level) {
   const map = UNIT_SPRITE_MAP[unitType] || { short: '???' };
   const size = 36;
   const borderColor = isPlayer ? 'rgba(200,168,75,0.7)' : 'rgba(192,37,58,0.7)';
   const bg          = isPlayer ? '#1a1506' : '#1a0508';
   const textColor   = isPlayer ? '#c8a84b' : '#c0253a';
+  const badge = (level && level > 1)
+    ? `<div style="position:absolute;bottom:-5px;right:-5px;background:#0a0c10;border:1px solid #8a6f2e;border-radius:3px;font-size:0.55rem;color:#c8a84b;padding:0 3px;font-family:'Cinzel',serif;line-height:1.5;pointer-events:none;">Lv${level}</div>`
+    : '';
 
   if (_spriteCoords && map.sheet && _imageCache[map.sheet]) {
     const dataUrl = _renderSpriteToDataUrl(map.sheet, map.sprite, size);
     if (dataUrl) {
       return L.divIcon({
-        html: `<div style="position:relative;width:${size}px;height:${size}px;border-radius:50%;border:2px solid ${borderColor};overflow:hidden;box-sizing:border-box;"><img src="${dataUrl}" width="${size}" height="${size}" style="display:block;" /></div>`,
+        html: `<div style="position:relative;width:${size}px;height:${size}px;border-radius:50%;border:2px solid ${borderColor};overflow:visible;box-sizing:border-box;"><img src="${dataUrl}" width="${size}" height="${size}" style="display:block;border-radius:50%;" />${badge}</div>`,
         className: '',
         iconSize: [size, size],
         iconAnchor: [size / 2, size / 2],
@@ -111,7 +114,7 @@ function createUnitIconSync(unitType, isPlayer) {
 
   // Text fallback
   return L.divIcon({
-    html: `<div style="width:${size}px;height:${size}px;background:${bg};border-radius:50%;border:2px solid ${borderColor};display:flex;align-items:center;justify-content:center;font-size:8px;font-family:'Cinzel',serif;color:${textColor};font-weight:700;letter-spacing:0.5px;line-height:1;text-align:center;">${map.short || '?'}</div>`,
+    html: `<div style="position:relative;width:${size}px;height:${size}px;background:${bg};border-radius:50%;border:2px solid ${borderColor};display:flex;align-items:center;justify-content:center;font-size:8px;font-family:'Cinzel',serif;color:${textColor};font-weight:700;letter-spacing:0.5px;line-height:1;text-align:center;">${map.short || '?'}${badge}</div>`,
     className: '',
     iconSize: [size, size],
     iconAnchor: [size / 2, size / 2],
