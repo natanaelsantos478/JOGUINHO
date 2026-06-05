@@ -81,6 +81,73 @@ function renderPanelForTab(tab) {
   attachPanelEvents(tab, state);
 }
 
+// ── CITY PANEL helpers ──────────────────────────────────────
+function _renderCityPanel(state, cityData) {
+  const cs = (typeof getOrInitCity === 'function') ? getOrInitCity(cityData) : null;
+  if (!cs) return '';
+
+  const meta     = (typeof CITY_LEVEL_META !== 'undefined') ? CITY_LEVEL_META[cs.level] : null;
+  const levelName = meta ? meta.name : `Nivel ${cs.level}`;
+  const slots    = (typeof getCitySlots  === 'function') ? getCitySlots(cs)  : '?';
+  const usedSlots= (typeof getUsedSlots  === 'function') ? getUsedSlots(cs)  : '?';
+  const isPlayer = cityData.country === state.player_country;
+
+  // structures list
+  const STRUCT_LABELS = (typeof STRUCT_DEFS !== 'undefined') ? STRUCT_DEFS : {};
+  const structRows = Object.entries(cs.structures || {}).map(([t, tier]) => {
+    const def = STRUCT_LABELS[t];
+    const img = (typeof getCityStructureImgHtml === 'function') ? getCityStructureImgHtml(t, 24) : '';
+    return `<div class="panel-row" style="gap:8px;">
+      ${img}
+      <span class="panel-label" style="flex:1">${def ? def.label : t}</span>
+      <span class="panel-value">Tier ${tier}</span>
+    </div>`;
+  }).join('');
+
+  // available builds (player's cities only)
+  let buildsHtml = '';
+  if (isPlayer && typeof getAvailableBuilds === 'function') {
+    const builds = getAvailableBuilds(cs);
+    if (builds.length > 0) {
+      buildsHtml = `<div class="panel-title" style="margin-top:12px">CONSTRUIR / MELHORAR</div>` +
+        builds.map(b => `
+          <button class="btn-primary${b.canAfford ? '' : ''}" ${b.canAfford ? '' : 'disabled'}
+            onclick="uiBuildCityStructure('${cityData.name}','${b.type}')"
+            style="text-align:left;font-size:0.73rem;padding:5px 8px;margin:2px 0">
+            ${b.label} <span style="color:var(--muted)">Tier ${b.curTier}→${b.nextTier}</span>
+            <span style="float:right;color:${b.canAfford ? 'var(--gold)' : 'var(--red)'}">$${b.cost}</span>
+          </button>`).join('');
+    } else {
+      buildsHtml = `<div class="panel-title" style="margin-top:12px">CONSTRUIR / MELHORAR</div><p style="color:var(--muted);font-size:0.78rem">Nenhuma construção disponível.</p>`;
+    }
+  }
+
+  const starsFull  = '★'.repeat(cs.level);
+  const starsEmpty = '☆'.repeat(4 - cs.level);
+
+  return `
+    <div class="panel-section">
+      <div class="panel-title">CIDADE</div>
+      <div style="font-family:'Cinzel',serif;font-size:1rem;color:var(--gold);margin-bottom:4px">${cs.name}</div>
+      <div style="font-size:0.8rem;color:var(--muted);margin-bottom:8px">${cs.country}${cs.coastal ? ' — Costeira' : ''}</div>
+      <div class="panel-row">
+        <span class="panel-label">Nível</span>
+        <span class="panel-value gold">${levelName} <span style="font-size:0.85rem">${starsFull}${starsEmpty}</span></span>
+      </div>
+      <div class="panel-row">
+        <span class="panel-label">Slots usados</span>
+        <span class="panel-value">${usedSlots} / ${slots}</span>
+      </div>
+      ${meta ? `<div class="panel-row"><span class="panel-label">Multiplicador</span><span class="panel-value">×${meta.genMult}</span></div>` : ''}
+    </div>
+    <div class="panel-section">
+      <div class="panel-title">ESTRUTURAS</div>
+      ${structRows || '<p style="color:var(--muted);font-size:0.78rem">Sem estruturas.</p>'}
+      ${buildsHtml}
+    </div>
+  `;
+}
+
 // ── INFO PANEL ─────────────────────────────────────────────
 function renderInfoPanel(state) {
   const country  = window._selectedCountry  || state.player_country;
@@ -88,6 +155,11 @@ function renderInfoPanel(state) {
   const base     = getCountryBaseData(country);
   const isPlayer = country === state.player_country;
   const rel      = isPlayer ? 'Seu pais' : relationLabel(getRelation(state, country));
+
+  // If a city was clicked, show city panel at top
+  const citySection = window._selectedCity && window._selectedCity.country === country
+    ? _renderCityPanel(state, window._selectedCity)
+    : '';
 
   const provinceSection = province ? `
     <div class="panel-section">
@@ -99,6 +171,7 @@ function renderInfoPanel(state) {
   ` : '';
 
   return `
+    ${citySection}
     ${provinceSection}
     <div class="panel-section">
       <div class="panel-title">INFORMACOES — ${province ? 'PAIS' : 'SELECAO'}</div>
@@ -570,4 +643,18 @@ function uiUpgradeMinistry(name) {
     renderPanelForTab('gov');
     saveGame(window.GS);
   } else notify(r.reason, 'error');
+}
+
+function uiBuildCityStructure(cityName, structureType) {
+  if (!window.GS || !window.GS.cities || !window.GS.cities[cityName]) return;
+  const cs = window.GS.cities[cityName];
+  const r  = buildCityStructure(cs, structureType);
+  if (r.ok) {
+    notify(`${r.label} — Tier ${r.nextTier} construído em ${cityName}!`, 'info');
+    updateHeader(window.GS);
+    renderPanelForTab('info');
+    saveGame(window.GS);
+  } else {
+    notify(r.reason, 'error');
+  }
 }

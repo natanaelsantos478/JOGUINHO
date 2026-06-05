@@ -124,6 +124,7 @@ async function _startGame(world, playerName) {
     setLoadingMsg('Carregando mapa...');
     const ok = await initMap(window.GS.map_view);
     if (!ok) return;
+    if (typeof initPlayerCities === 'function') initPlayerCities(window.GS.player_country);
     showGameUI();
     renderAll();
     notify(`${world.name} — Turno ${window.GS.turn}`, 'info');
@@ -159,6 +160,7 @@ function buildStateFromSave(row, world, playerName) {
     },
     units:        row.units      || [],
     structures:   res.structures || row.structures || [],
+    cities:       row.cities     || {},
     diplomacy:    row.diplomacy  || {},
     at_war_with:  row.at_war_with || [],
     allies:       row.allies      || [],
@@ -188,6 +190,7 @@ async function confirmCountrySelection(countryName) {
     resources,
     units:          [],
     structures:     [],
+    cities:         {},
     diplomacy:      {},
     at_war_with:    [],
     allies:         [],
@@ -200,6 +203,8 @@ async function confirmCountrySelection(countryName) {
   setLoadingMsg('Carregando mapa...');
   const ok = await initMap(null);
   if (!ok) return;
+
+  if (typeof initPlayerCities === 'function') initPlayerCities(countryName);
 
   showGameUI();
   renderAll();

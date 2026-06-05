@@ -88,6 +88,16 @@ async function initMap(savedView) {
   return true;
 }
 
+// ── City map click ─────────────────────────────────────────
+function onCityMapClick(cityData) {
+  if (!window.GS) return;
+  L.DomEvent.stopPropagation;
+  window._selectedCity    = cityData;
+  window._selectedCountry = cityData.country;
+  window._selectedProvince = null;
+  if (typeof switchTab === 'function') switchTab('info');
+}
+
 // ── Place-unit mode ────────────────────────────────────────
 async function enterPlaceUnitMode(unit, onPlace, onCancel, countryName) {
   _placeUnitMode = { unit, onPlace, onCancel: onCancel || null, countryName: countryName || null };
@@ -346,6 +356,7 @@ function onCountryClick(name, state) {
   if (window._selectedUnitId) return;
   window._selectedCountry  = name;
   window._selectedProvince = null;
+  window._selectedCity     = null;
   renderPanelForTab('info');
   switchTab('info');
 }
@@ -703,6 +714,7 @@ function onProvinceClick(provinceName, countryName) {
   if (window._selectedUnitId) return;
   window._selectedCountry  = countryName;
   window._selectedProvince = provinceName;
+  window._selectedCity     = null;
   renderPanelForTab('info');
   switchTab('info');
 }

@@ -59,6 +59,7 @@ async function _doSave(state) {
       turn:           state.turn,
       resources:      resourcesPayload,
       units:          state.units,
+      cities:         state.cities || {},
       diplomacy:      state.diplomacy,
       at_war_with:    state.at_war_with,
       allies:         state.allies,

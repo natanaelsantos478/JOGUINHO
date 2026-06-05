@@ -612,6 +612,9 @@ function _buildCityMarkers(metropolisDataUrl, cityDataUrl) {
     const tip = `<b>${c.name}</b><br>${c.country}${popStr}`;
     const dotMarker  = L.marker([c.lat, c.lng], { icon: dotIcon,  interactive: true }).bindTooltip(tip, { direction: 'top', offset: [0, -4]         });
     const fullMarker = L.marker([c.lat, c.lng], { icon: fullIcon, interactive: true }).bindTooltip(tip, { direction: 'top', offset: [0, -size/2 - 2] });
+    const clickHandler = () => { if (typeof onCityMapClick === 'function') onCityMapClick(c); };
+    dotMarker.on('click',  clickHandler);
+    fullMarker.on('click', clickHandler);
     _poisCities.push({ dotMarker, fullMarker, tier: c.tier });
   }
 }
