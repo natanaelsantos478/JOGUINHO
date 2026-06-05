@@ -7,18 +7,21 @@
 window._poisLayer = null;
 
 // ── Internal sub-arrays ────────────────────────────────────
-const _poisPorts    = [];   // { marker, tier }
-const _poisMilitary = [];   // { marker, tier }
-const _poisCities   = [];   // { marker, tier }
+const _poisPorts    = [];   // { dotMarker, fullMarker, tier }
+const _poisMilitary = [];   // { dotMarker, fullMarker, tier }
+const _poisCities   = [];   // { dotMarker, fullMarker, tier }
 
 // ── Zoom thresholds ────────────────────────────────────────
+// Below DOT_THRESHOLD → small colored dot; above → sprite icon
+const POI_DOT_THRESHOLD = 5;
+
 const POI_ZOOM = {
-  city1:    3,   // capitals
-  city2:    5,   // mega-cities
-  port1:    4,   // major hub ports
-  port2:    6,   // regional ports
-  mil1:     5,   // major installations
-  mil2:     7,   // smaller bases
+  city1:    2,   // capitals — visible from far away
+  city2:    3,   // mega-cities
+  port1:    2,   // major hub ports
+  port2:    4,   // regional ports
+  mil1:     3,   // major installations
+  mil2:     6,   // smaller bases
 };
 
 // ══════════════════════════════════════════════════════════
@@ -526,6 +529,16 @@ const CITIES = [
 //  HELPERS — sprite icon builder
 // ══════════════════════════════════════════════════════════
 
+function _makePoiDotIcon(color, size) {
+  const s = size || 6;
+  return L.divIcon({
+    html: `<div style="width:${s}px;height:${s}px;border-radius:50%;background:${color};box-shadow:0 0 4px rgba(0,0,0,0.7);pointer-events:auto;"></div>`,
+    className: '',
+    iconSize:   [s, s],
+    iconAnchor: [s / 2, s / 2],
+  });
+}
+
 function _makePoiIcon(dataUrl, size, borderColor, bg, label) {
   if (dataUrl) {
     return L.divIcon({
@@ -551,54 +564,55 @@ function _makePoiIcon(dataUrl, size, borderColor, bg, label) {
 function _buildPortMarkers(civDataUrl) {
   _poisPorts.length = 0;
   for (const p of SEAPORTS) {
-    const icon = _makePoiIcon(civDataUrl, 20, '#1a7fbf', '#0a2040', 'PORT');
-    const marker = L.marker([p.lat, p.lng], { icon, interactive: true })
-      .bindTooltip(`<b>${p.name}</b><br>${p.city}, ${p.country}<br><i>Seaport (Tier ${p.tier})</i>`, { direction: 'top', offset: [0, -10] });
-    _poisPorts.push({ marker, tier: p.tier });
+    const dotColor = p.tier === 1 ? '#4090e0' : '#6aaeee';
+    const dotSize  = p.tier === 1 ? 7 : 5;
+    const dotIcon  = _makePoiDotIcon(dotColor, dotSize);
+    const tip = `<b>${p.name}</b><br>${p.city}, ${p.country}<br><i>Porto (Tier ${p.tier})</i>`;
+    const dotMarker  = L.marker([p.lat, p.lng], { icon: dotIcon,  interactive: true }).bindTooltip(tip, { direction: 'top', offset: [0, -4]  });
+    const fullMarker = L.marker([p.lat, p.lng], { icon: fullIcon, interactive: true }).bindTooltip(tip, { direction: 'top', offset: [0, -10] });
+    _poisPorts.push({ dotMarker, fullMarker, tier: p.tier });
   }
 }
 
 function _buildMilitaryMarkers(milAirDataUrl, milNavDataUrl, milArmyDataUrl) {
   _poisMilitary.length = 0;
   for (const b of MILITARY_BASES) {
-    let dataUrl, borderColor, bg, label;
+    let dataUrl, borderColor, bg, label, dotColor;
     if (b.type === 'air') {
-      dataUrl = milAirDataUrl;
-      borderColor = '#a0c020';
-      bg = '#1a2005';
-      label = 'AIR';
+      dataUrl = milAirDataUrl; borderColor = '#a0c020'; bg = '#1a2005'; label = 'AIR'; dotColor = '#b8d840';
     } else if (b.type === 'naval') {
-      dataUrl = milNavDataUrl;
-      borderColor = '#2080c0';
-      bg = '#051540';
-      label = 'NAV';
+      dataUrl = milNavDataUrl; borderColor = '#2080c0'; bg = '#051540'; label = 'NAV'; dotColor = '#3090d0';
     } else {
-      dataUrl = milArmyDataUrl;
-      borderColor = '#c05020';
-      bg = '#200a05';
-      label = 'HQ';
+      dataUrl = milArmyDataUrl; borderColor = '#c05020'; bg = '#200a05'; label = 'HQ'; dotColor = '#e06030';
     }
-    const icon = _makePoiIcon(dataUrl, 20, borderColor, bg, label);
-    const marker = L.marker([b.lat, b.lng], { icon, interactive: true })
-      .bindTooltip(`<b>${b.name}</b><br>${b.country}<br><i>Military Base — ${b.type} (Tier ${b.tier})</i>`, { direction: 'top', offset: [0, -10] });
-    _poisMilitary.push({ marker, tier: b.tier });
+    const dotSize    = b.tier === 1 ? 7 : 5;
+    const dotIcon    = _makePoiDotIcon(dotColor, dotSize);
+    const fullIcon   = _makePoiIcon(dataUrl, 20, borderColor, bg, label);
+    const tip = `<b>${b.name}</b><br>${b.country}<br><i>Base Militar — ${b.type} (Tier ${b.tier})</i>`;
+    const dotMarker  = L.marker([b.lat, b.lng], { icon: dotIcon,  interactive: true }).bindTooltip(tip, { direction: 'top', offset: [0, -4]  });
+    const fullMarker = L.marker([b.lat, b.lng], { icon: fullIcon, interactive: true }).bindTooltip(tip, { direction: 'top', offset: [0, -10] });
+    _poisMilitary.push({ dotMarker, fullMarker, tier: b.tier });
   }
 }
 
 function _buildCityMarkers(metropolisDataUrl, cityDataUrl) {
   _poisCities.length = 0;
   for (const c of CITIES) {
-    const isCapital = c.tier === 1;
-    const size = isCapital ? 22 : 18;
-    const dataUrl = isCapital ? metropolisDataUrl : cityDataUrl;
+    const isCapital   = c.tier === 1;
+    const size        = isCapital ? 22 : 18;
+    const dataUrl     = isCapital ? metropolisDataUrl : cityDataUrl;
     const borderColor = isCapital ? '#f0c040' : '#c0a030';
-    const bg = isCapital ? '#2a1e00' : '#1a1500';
-    const label = isCapital ? 'CAP' : 'CITY';
-    const icon = _makePoiIcon(dataUrl, size, borderColor, bg, label);
-    const popStr = c.pop ? `<br>Pop: ${c.pop.toLocaleString()}` : '';
-    const marker = L.marker([c.lat, c.lng], { icon, interactive: true })
-      .bindTooltip(`<b>${c.name}</b><br>${c.country}${popStr}`, { direction: 'top', offset: [0, -size / 2 - 2] });
-    _poisCities.push({ marker, tier: c.tier });
+    const bg          = isCapital ? '#2a1e00' : '#1a1500';
+    const label       = isCapital ? 'CAP' : 'CITY';
+    const dotColor    = isCapital ? '#f0c040' : '#c8a030';
+    const dotSize     = isCapital ? 8 : 6;
+    const dotIcon     = _makePoiDotIcon(dotColor, dotSize);
+    const fullIcon    = _makePoiIcon(dataUrl, size, borderColor, bg, label);
+    const popStr      = c.pop ? `<br>Pop: ${c.pop.toLocaleString()}` : '';
+    const tip = `<b>${c.name}</b><br>${c.country}${popStr}`;
+    const dotMarker  = L.marker([c.lat, c.lng], { icon: dotIcon,  interactive: true }).bindTooltip(tip, { direction: 'top', offset: [0, -4]         });
+    const fullMarker = L.marker([c.lat, c.lng], { icon: fullIcon, interactive: true }).bindTooltip(tip, { direction: 'top', offset: [0, -size/2 - 2] });
+    _poisCities.push({ dotMarker, fullMarker, tier: c.tier });
   }
 }
 
@@ -636,22 +650,23 @@ async function initPoisLayer(map) {
 function updatePoisMarkers(zoom) {
   if (!window._poisLayer) return;
   window._poisLayer.clearLayers();
+  const useDot = zoom < POI_DOT_THRESHOLD;
 
-  // Cities
   for (const item of _poisCities) {
     const threshold = item.tier === 1 ? POI_ZOOM.city1 : POI_ZOOM.city2;
-    if (zoom >= threshold) window._poisLayer.addLayer(item.marker);
+    if (zoom < threshold) continue;
+    window._poisLayer.addLayer(useDot ? item.dotMarker : item.fullMarker);
   }
 
-  // Ports
   for (const item of _poisPorts) {
     const threshold = item.tier === 1 ? POI_ZOOM.port1 : POI_ZOOM.port2;
-    if (zoom >= threshold) window._poisLayer.addLayer(item.marker);
+    if (zoom < threshold) continue;
+    window._poisLayer.addLayer(useDot ? item.dotMarker : item.fullMarker);
   }
 
-  // Military bases
   for (const item of _poisMilitary) {
     const threshold = item.tier === 1 ? POI_ZOOM.mil1 : POI_ZOOM.mil2;
-    if (zoom >= threshold) window._poisLayer.addLayer(item.marker);
+    if (zoom < threshold) continue;
+    window._poisLayer.addLayer(useDot ? item.dotMarker : item.fullMarker);
   }
 }

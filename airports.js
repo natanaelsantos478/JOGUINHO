@@ -471,21 +471,24 @@ function initAirportsLayer(map) {
  * @param {L.Map} map
  * @param {number} zoomLevel  current map zoom
  */
+var _AIRPORT_DOT_THRESHOLD = 5;
+
 function renderAirports(map, zoomLevel) {
   if (!window._airportsLayer) {
     initAirportsLayer(map);
   }
   window._airportsLayer.clearLayers();
+  var useDot = zoomLevel < _AIRPORT_DOT_THRESHOLD;
 
   for (var i = 0; i < AIRPORTS.length; i++) {
     var a = AIRPORTS[i];
 
-    // zoom-level visibility gate
-    if (a.tier === 3 && zoomLevel < 4) continue;
-    if (a.tier === 2 && zoomLevel < 6) continue;
-    if (a.tier === 1 && zoomLevel < 8) continue;
+    // zoom-level visibility gate (lower thresholds so dots appear early)
+    if (a.tier === 3 && zoomLevel < 2) continue;
+    if (a.tier === 2 && zoomLevel < 4) continue;
+    if (a.tier === 1 && zoomLevel < 7) continue;
 
-    var icon = _buildAirportIcon(a.tier);
+    var icon = useDot ? _buildAirportDotIcon(a.tier) : _buildAirportIcon(a.tier);
 
     var marker = L.marker([a.lat, a.lng], {
       icon: icon,
@@ -531,6 +534,21 @@ function updateAirportMarkers(zoom) {
   var map = window._airportsLayer._map;
   if (!map) return;
   renderAirports(map, zoom);
+}
+
+/**
+ * @private
+ * Small colored dot for low-zoom view.
+ */
+function _buildAirportDotIcon(tier) {
+  var size  = tier === 3 ? 7 : tier === 2 ? 5 : 4;
+  var color = tier === 3 ? '#ffffff' : tier === 2 ? '#cccccc' : '#888888';
+  return L.divIcon({
+    className: '',
+    html: "<div style='width:" + size + "px;height:" + size + "px;border-radius:50%;background:" + color + ";box-shadow:0 0 3px rgba(0,0,0,0.7);'></div>",
+    iconSize:   [size, size],
+    iconAnchor: [Math.floor(size / 2), Math.floor(size / 2)]
+  });
 }
 
 /**
