@@ -83,14 +83,25 @@ function renderPanelForTab(tab) {
 
 // ── INFO PANEL ─────────────────────────────────────────────
 function renderInfoPanel(state) {
-  const country = window._selectedCountry || state.player_country;
-  const base = getCountryBaseData(country);
+  const country  = window._selectedCountry  || state.player_country;
+  const province = window._selectedProvince || null;
+  const base     = getCountryBaseData(country);
   const isPlayer = country === state.player_country;
-  const rel = isPlayer ? 'Seu pais' : relationLabel(getRelation(state, country));
+  const rel      = isPlayer ? 'Seu pais' : relationLabel(getRelation(state, country));
+
+  const provinceSection = province ? `
+    <div class="panel-section">
+      <div class="panel-title">PROVINCIA / ESTADO</div>
+      <div style="font-family:'Cinzel',serif;font-size:0.95rem;color:var(--gold);margin-bottom:6px;">${province}</div>
+      <div style="font-size:0.8rem;color:var(--muted);margin-bottom:8px;">${country}</div>
+      ${isPlayer ? `<button class="btn-primary btn-success" onclick="uiRecruitInProvince()">+ RECRUTAR AQUI</button>` : ''}
+    </div>
+  ` : '';
 
   return `
+    ${provinceSection}
     <div class="panel-section">
-      <div class="panel-title">INFORMACOES</div>
+      <div class="panel-title">INFORMACOES — ${province ? 'PAIS' : 'SELECAO'}</div>
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
         <img src="${getFlagUrl(base.iso2)}" style="width:40px;height:27px;object-fit:cover;border-radius:3px;border:1px solid var(--border);" onerror="this.style.display='none'" />
         <div>
@@ -542,6 +553,12 @@ function uiStartBuild(type) {
 
 function closeBuildModal() {
   document.getElementById('build-modal').classList.remove('visible');
+}
+
+function uiRecruitInProvince() {
+  // Abre modal de recrutamento; após escolher a unidade, o placement
+  // vai diretamente para a província selecionada no painel
+  openRecruitModal();
 }
 
 function uiUpgradeMinistry(name) {

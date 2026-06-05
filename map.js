@@ -11,8 +11,13 @@ let _geojsonData = null;
 let _placeUnitMode = null;      // { unit, onPlace, onCancel, countryName }
 let _placeHighlightLayer = null;
 let _placeHintEl = null;
-let _provincesLayer = null;
-const _provincesCache = {};     // iso3 → GeoJSON (null = failed)
+let _provincesLayer = null;     // usado só no modo de placement
+const _provincesCache = {};     // countryName → GeoJSON (null = failed)
+
+let _permProvincesLayer = null; // camada permanente visível no zoom
+const _renderedPermProvinces = new Set();
+let _provinceUpdateTimer = null;
+const PROVINCE_ZOOM_THRESHOLD = 4;
 
 // ── Initialise main game map ───────────────────────────────
 async function initMap(savedView) {
@@ -33,9 +38,10 @@ async function initMap(savedView) {
     maxZoom: 20,
   }).addTo(_map);
 
-  _countriesLayer  = L.layerGroup().addTo(_map);
-  _unitsLayer      = L.layerGroup().addTo(_map);
-  _structuresLayer = L.layerGroup().addTo(_map);
+  _countriesLayer      = L.layerGroup().addTo(_map);
+  _permProvincesLayer  = L.layerGroup().addTo(_map);
+  _unitsLayer          = L.layerGroup().addTo(_map);
+  _structuresLayer     = L.layerGroup().addTo(_map);
 
   const loaded = await _loadGeoJSON();
   if (!loaded) return false;
@@ -70,6 +76,8 @@ async function initMap(savedView) {
       const c = _map.getCenter();
       GS.map_view = { lat: c.lat, lng: c.lng, zoom: _map.getZoom() };
     }
+    clearTimeout(_provinceUpdateTimer);
+    _provinceUpdateTimer = setTimeout(_updatePermProvinces, 500);
   });
 
   return true;
@@ -331,7 +339,8 @@ function renderCountries(state) {
 
 function onCountryClick(name, state) {
   if (window._selectedUnitId) return;
-  window._selectedCountry = name;
+  window._selectedCountry  = name;
+  window._selectedProvince = null;
   renderPanelForTab('info');
   switchTab('info');
 }
@@ -554,4 +563,67 @@ function getAllCountryNames() {
     .map(f => f.properties.ADMIN || f.properties.name || '')
     .filter(Boolean)
     .sort();
+}
+
+// ── Camada permanente de províncias (visível no zoom) ──────
+async function _updatePermProvinces() {
+  if (!_map || !_geojsonData) return;
+  const zoom = _map.getZoom();
+
+  if (zoom < PROVINCE_ZOOM_THRESHOLD) {
+    _permProvincesLayer.clearLayers();
+    _renderedPermProvinces.clear();
+    return;
+  }
+
+  // Encontra países cujos bounds intersectam o viewport
+  const vp = _map.getBounds().pad(0.1);
+  const visible = _geojsonData.features.filter(f => {
+    try { return vp.intersects(L.geoJSON(f).getBounds()); }
+    catch { return false; }
+  }).map(f => f.properties.ADMIN || f.properties.name || '').filter(Boolean);
+
+  for (const countryName of visible) {
+    if (_renderedPermProvinces.has(countryName)) continue;
+    _renderedPermProvinces.add(countryName); // marca antes de fetch para evitar duplicatas
+    const geojson = await _loadCountryProvinces(countryName);
+    if (!geojson) continue;
+    if (_map.getZoom() < PROVINCE_ZOOM_THRESHOLD) return; // saiu do zoom enquanto carregava
+    _addPermProvinceLayer(countryName, geojson);
+  }
+}
+
+function _addPermProvinceLayer(countryName, geojson) {
+  L.geoJSON(geojson, {
+    style: { color: '#4a5a7a', weight: 0.8, fillOpacity: 0, opacity: 0.8 },
+    onEachFeature(feature, layer) {
+      const name = feature.properties.name || feature.properties['woe-name'] || '';
+      layer.on('click', (e) => {
+        if (_placeUnitMode) return;
+        L.DomEvent.stopPropagation(e);
+        onProvinceClick(name, countryName);
+      });
+      layer.on('mouseover', function(e) {
+        L.DomEvent.stopPropagation(e);
+        this.setStyle({ color: '#c8a84b', weight: 1.5, opacity: 1 });
+        if (name) this.bindTooltip(
+          `<div style="font-family:'Cinzel',serif;font-size:0.78rem;color:#c8a84b;background:#0f1318;border:1px solid #1e2535;padding:3px 8px;border-radius:3px;">${name} <span style="color:var(--muted);font-size:0.7rem;">— ${countryName}</span></div>`,
+          { sticky: true, className: '' }
+        ).openTooltip();
+      });
+      layer.on('mouseout', function(e) {
+        L.DomEvent.stopPropagation(e);
+        this.setStyle({ color: '#4a5a7a', weight: 0.8, opacity: 0.8 });
+        this.closeTooltip();
+      });
+    }
+  }).addTo(_permProvincesLayer);
+}
+
+function onProvinceClick(provinceName, countryName) {
+  if (window._selectedUnitId) return;
+  window._selectedCountry  = countryName;
+  window._selectedProvince = provinceName;
+  renderPanelForTab('info');
+  switchTab('info');
 }
