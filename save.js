@@ -3,7 +3,7 @@
 // ═══════════════════════════════════════════════════════════
 
 const SUPABASE_URL = 'https://tgeomsnxfcqwrxijjvek.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_8MoHM6-LrvozvGFGLfNpZg_F6G2fMhF';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRnZW9tc254ZmNxd3J4aWpqdmVrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI1NDAxMjEsImV4cCI6MjA4ODExNjEyMX0.5c_DvW3KlTd1p75oMDXrRZNmggFrVUbwO9Dk0fqapD4';
 const SAVE_TABLE  = 'world_conquest_save';
 
 let _db = null;

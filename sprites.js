@@ -170,6 +170,17 @@ function createStructureIcon(structType, isComplete) {
   });
 }
 
+// Exposta para POI layers (portos, bases, cidades)
+async function loadSpriteSheet(sheetName) {
+  return _loadSheet(sheetName);
+}
+
+function getSpriteDataUrl(sheetName, spriteName, size) {
+  size = size || 24;
+  if (!_spriteCoords || !_imageCache[sheetName]) return null;
+  return _renderSpriteToDataUrl(sheetName, spriteName, size);
+}
+
 // Exposta globalmente para uso nos painéis
 function getUnitSpriteDataUrl(unitType, size) {
   size = size || 36;

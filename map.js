@@ -70,10 +70,9 @@ async function initMap(savedView) {
     }
   });
 
-  // Init airports layer
-  if (typeof initAirportsLayer === 'function') {
-    initAirportsLayer(_map);
-  }
+  // Init POI layers (airports, ports, military bases, cities)
+  if (typeof initAirportsLayer === 'function') initAirportsLayer(_map);
+  if (typeof initPoisLayer     === 'function') initPoisLayer(_map);
 
   _map.on('moveend zoomend', () => {
     if (window.GS) {
@@ -82,9 +81,8 @@ async function initMap(savedView) {
     }
     clearTimeout(_provinceUpdateTimer);
     _provinceUpdateTimer = setTimeout(_updatePermProvinces, 500);
-    if (typeof updateAirportMarkers === 'function') {
-      updateAirportMarkers(_map.getZoom());
-    }
+    if (typeof updateAirportMarkers === 'function') updateAirportMarkers(_map.getZoom());
+    if (typeof updatePoisMarkers    === 'function') updatePoisMarkers(_map.getZoom());
   });
 
   return true;

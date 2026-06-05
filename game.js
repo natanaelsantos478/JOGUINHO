@@ -56,7 +56,7 @@ async function submitCreateWorld() {
   if (!world) {
     document.getElementById('loading-screen').style.display = 'none';
     showLoginScreen();
-    notify('Erro ao criar mundo. Tente novamente.', 'error');
+    alert('Erro ao criar mundo. Verifique a conexão e tente novamente.');
     return;
   }
   await _startGame(world, playerName);
