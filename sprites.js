@@ -8,19 +8,19 @@ const _imageCache = {};
 // Unit type → sheet + specific sprite name + short text fallback
 const UNIT_SPRITE_MAP = {
   infantry:        { sheet: 'sheet_soldiers.png',          sprite: 'sol_infantry_soldier',     short: 'INF'     },
-  motorized:       { sheet: 'sheet_ground_support.png',    sprite: null,                        short: 'MOT'     },
+  motorized:       { sheet: 'sheet_vehicles_light.png',    sprite: 'veh1_m113_apc',            short: 'MOT'     },
   veh_light:       { sheet: 'sheet_vehicles_light.png',    sprite: 'veh1_humvee_hmmwv',        short: 'V.LEV'   },
   veh_medium:      { sheet: 'sheet_vehicles_medium.png',   sprite: 'veh2_bradley_m2',          short: 'V.MED'   },
   tank_elite:      { sheet: 'sheet_tanks_level1.png',      sprite: 'tank1_m1a2_abrams',        short: 'TANQ'    },
-  artillery:       { sheet: 'sheet_ground_support.png',    sprite: null,                        short: 'ARTIL'   },
+  artillery:       { sheet: 'sheet_vehicles_medium.png',   sprite: 'veh2_mlrs_m270',           short: 'ARTIL'   },
   air3_drone:      { sheet: 'sheet_air_level3.png',        sprite: 'air3_mq9_reaper',          short: 'DRONE'   },
   air2_fighter:    { sheet: 'sheet_air_level2.png',        sprite: 'air2_f16_falcon',          short: 'CACA'    },
-  air2_helicopter: { sheet: 'sheet_air_level2.png',        sprite: null,                        short: 'HELI'    },
+  air2_helicopter: { sheet: 'sheet_air_level2.png',        sprite: 'air2_apache_ah64',         short: 'HELI'    },
   air1_stealth:    { sheet: 'sheet_air_level1.png',        sprite: 'air1_f35_lightning',       short: 'STEALTH' },
-  air_transport:   { sheet: 'sheet_air_support.png',       sprite: null,                        short: 'TRANS'   },
+  air_transport:   { sheet: 'sheet_air_support.png',       sprite: 'airsup_c17_globemaster',   short: 'TRANS'   },
   nav3_patrol:     { sheet: 'sheet_naval_level3.png',      sprite: 'nav3_lcs_freedom',         short: 'PATROL'  },
   nav2_frigate:    { sheet: 'sheet_naval_level2.png',      sprite: 'nav2_ticonderoga_cruiser', short: 'FRIG'    },
-  nav1_destroyer:  { sheet: 'sheet_naval_level1.png',      sprite: 'nav1_gerald_ford_carrier', short: 'DESTR'   },
+  nav1_destroyer:  { sheet: 'sheet_naval_level1.png',      sprite: 'nav1_arleigh_burke',       short: 'DESTR'   },
   nav1_carrier:    { sheet: 'sheet_naval_level1.png',      sprite: 'nav1_gerald_ford_carrier', short: 'CARRIER' },
 };
 

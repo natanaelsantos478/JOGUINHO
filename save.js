@@ -3,15 +3,21 @@
 // ═══════════════════════════════════════════════════════════
 
 const SUPABASE_URL = 'https://tgeomsnxfcqwrxijjvek.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRnZW9tc254ZmNxd3J4aWpqdmVrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI1NDAxMjEsImV4cCI6MjA4ODExNjEyMX0.5c_DvW3KlTd1p75oMDXrRZNmggFrVUbwO9Dk0fqapD4';
+const SUPABASE_KEY = 'sb_publishable_8MoHM6-LrvozvGFGLfNpZg_F6G2fMhF';
 const SAVE_TABLE  = 'world_conquest_save';
-const SAVE_ID     = 'player_save';
 
 let _db = null;
 let _saveTimer = null;
+let _currentSaveId = 'player_save';   // updated by setCurrentSave()
 
 function initSupabase() {
   _db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+}
+
+// Called from game.js when a world/player is selected
+function setCurrentSave(worldId, playerName) {
+  const safe = (playerName || 'player').replace(/[^a-z0-9]/gi, '_').toLowerCase().slice(0, 24);
+  _currentSaveId = worldId ? `wc_${worldId}_${safe}` : 'player_save';
 }
 
 async function loadGame() {
@@ -19,7 +25,7 @@ async function loadGame() {
     const { data, error } = await _db
       .from(SAVE_TABLE)
       .select('*')
-      .eq('id', SAVE_ID)
+      .eq('id', _currentSaveId)
       .maybeSingle();
 
     if (error) { console.warn('Load error:', error.message); return null; }
@@ -46,7 +52,9 @@ async function _doSave(state) {
     };
 
     const payload = {
-      id:             SAVE_ID,
+      id:             _currentSaveId,
+      world_id:       state.world_id || null,
+      player_name:    state.player_name || null,
       player_country: state.player_country,
       turn:           state.turn,
       resources:      resourcesPayload,
@@ -84,6 +92,51 @@ function _setSaveIndicator(status) {
 
 async function deleteSave() {
   try {
-    await _db.from(SAVE_TABLE).delete().eq('id', SAVE_ID);
+    await _db.from(SAVE_TABLE).delete().eq('id', _currentSaveId);
   } catch (e) { /* ignore */ }
+}
+
+// ── Worlds API ──────────────────────────────────────────────
+async function loadWorlds() {
+  try {
+    const { data, error } = await _db
+      .from('wc_worlds')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(30);
+    if (error) { console.warn('loadWorlds error:', error.message); return []; }
+    return data || [];
+  } catch (e) {
+    console.warn('loadWorlds exception:', e);
+    return [];
+  }
+}
+
+async function createWorld(name, hostName) {
+  try {
+    const { data, error } = await _db
+      .from('wc_worlds')
+      .insert({ name, host_name: hostName })
+      .select()
+      .single();
+    if (error) { console.warn('createWorld error:', error.message); return null; }
+    return data;
+  } catch (e) {
+    console.warn('createWorld exception:', e);
+    return null;
+  }
+}
+
+async function getPlayerSaveForWorld(worldId, playerName) {
+  const safe = (playerName || 'player').replace(/[^a-z0-9]/gi, '_').toLowerCase().slice(0, 24);
+  const saveId = `wc_${worldId}_${safe}`;
+  try {
+    const { data, error } = await _db
+      .from(SAVE_TABLE)
+      .select('*')
+      .eq('id', saveId)
+      .maybeSingle();
+    if (error) return null;
+    return data || null;
+  } catch { return null; }
 }

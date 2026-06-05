@@ -70,6 +70,11 @@ async function initMap(savedView) {
     }
   });
 
+  // Init airports layer
+  if (typeof initAirportsLayer === 'function') {
+    initAirportsLayer(_map);
+  }
+
   _map.on('moveend zoomend', () => {
     if (window.GS) {
       const c = _map.getCenter();
@@ -77,6 +82,9 @@ async function initMap(savedView) {
     }
     clearTimeout(_provinceUpdateTimer);
     _provinceUpdateTimer = setTimeout(_updatePermProvinces, 500);
+    if (typeof updateAirportMarkers === 'function') {
+      updateAirportMarkers(_map.getZoom());
+    }
   });
 
   return true;
@@ -361,12 +369,35 @@ function renderUnits(state) {
       icon,
       title: unit.name,
       zIndexOffset: isPlayer ? 1000 : 0,
+      draggable: isPlayer,
     });
 
     marker.on('click', (e) => {
       L.DomEvent.stopPropagation(e);
       onUnitClick(unit.id, state);
     });
+
+    if (isPlayer) {
+      marker.on('dragstart', () => {
+        window._selectedUnitId = null;
+        clearRouteLines();
+      });
+      marker.on('dragend', (e) => {
+        const { lat, lng } = e.target.getLatLng();
+        const result = moveUnit(unit, lat, lng);
+        if (result.ok) {
+          unit.lat = lat;
+          unit.lng = lng;
+          saveGame(window.GS);
+          renderUnits(window.GS);
+          renderPanelForTab('military');
+          notify(`${unit.name} reposicionada`, 'info');
+        } else {
+          e.target.setLatLng(pos); // snap back
+          notify(result.reason, 'error');
+        }
+      });
+    }
 
     marker.bindTooltip(_buildUnitTooltip(unit), {
       className: '',
@@ -645,7 +676,7 @@ async function _updatePermProvinces() {
 
 function _addPermProvinceLayer(countryName, geojson) {
   L.geoJSON(geojson, {
-    style: { color: '#4a5a7a', weight: 0.8, fillOpacity: 0, opacity: 0.8 },
+    style: { color: 'rgba(0,0,0,0.9)', weight: 1, fillOpacity: 0, opacity: 1 },
     onEachFeature(feature, layer) {
       const name = feature.properties.name || feature.properties['woe-name'] || '';
       layer.on('click', (e) => {
@@ -663,7 +694,7 @@ function _addPermProvinceLayer(countryName, geojson) {
       });
       layer.on('mouseout', function(e) {
         L.DomEvent.stopPropagation(e);
-        this.setStyle({ color: '#4a5a7a', weight: 0.8, opacity: 0.8 });
+        this.setStyle({ color: 'rgba(0,0,0,0.9)', weight: 1, opacity: 1 });
         this.closeTooltip();
       });
     }

@@ -46,6 +46,46 @@ const AI_CENTROIDS = {
   'Poland':         { lat: 52,  lng: 20   },
 };
 
+// Coordenadas costeiras para spawn de navios (países com acesso marítimo real)
+const NAVAL_CENTROIDS = {
+  'United States':  { lat: 36.8,  lng: -75.9  },  // Virginia Beach / Atlantic
+  'Russia':         { lat: 43.1,  lng: 131.9  },  // Vladivostok
+  'China':          { lat: 22.3,  lng: 114.2  },  // South China Sea
+  'France':         { lat: 43.3,  lng: 5.4    },  // Marseille
+  'United Kingdom': { lat: 50.8,  lng: -1.1   },  // Portsmouth
+  'Japan':          { lat: 34.7,  lng: 136.9  },  // Nagoya Bay
+  'India':          { lat: 15.5,  lng: 73.8   },  // Arabian Sea
+  'Brazil':         { lat: -22.9, lng: -43.2  },  // Rio de Janeiro
+  'Australia':      { lat: -33.9, lng: 151.2  },  // Sydney
+  'Turkey':         { lat: 36.8,  lng: 36.1   },  // Iskenderun Bay
+  'Saudi Arabia':   { lat: 21.5,  lng: 39.2   },  // Jeddah
+  'Iran':           { lat: 26.5,  lng: 56.3   },  // Strait of Hormuz
+  'North Korea':    { lat: 40.5,  lng: 129.6  },  // East Sea
+  'South Korea':    { lat: 35.1,  lng: 129.0  },  // Busan
+  'Pakistan':       { lat: 24.9,  lng: 67.0   },  // Karachi
+  'Argentina':      { lat: -38.0, lng: -57.6  },  // Mar del Plata
+  'Mexico':         { lat: 19.2,  lng: -104.0 },  // Manzanillo
+  'Canada':         { lat: 44.6,  lng: -63.6  },  // Halifax
+  'Italy':          { lat: 40.8,  lng: 14.3   },  // Naples
+  'Spain':          { lat: 36.5,  lng: -6.3   },  // Cadiz
+  'Indonesia':      { lat: -6.1,  lng: 106.8  },  // Jakarta Bay
+  'South Africa':   { lat: -33.9, lng: 18.4   },  // Cape Town
+  'Egypt':          { lat: 31.2,  lng: 29.9   },  // Alexandria
+  'Nigeria':        { lat: 6.4,   lng: 3.4    },  // Lagos
+};
+
+// Países sem saída para o mar (terrestres) — nunca recebem navios
+const LANDLOCKED = new Set([
+  'Germany','Austria','Switzerland','Hungary','Czech Republic','Slovakia',
+  'Belarus','Moldova','Serbia','Bosnia and Herzegovina','North Macedonia',
+  'Mongolia','Kazakhstan','Uzbekistan','Turkmenistan','Kyrgyzstan','Tajikistan',
+  'Afghanistan','Nepal','Bhutan','Ethiopia','Uganda','Rwanda','Burundi',
+  'Chad','Niger','Mali','Burkina Faso','Central African Republic','South Sudan',
+  'Zambia','Zimbabwe','Malawi','Botswana','Lesotho','Eswatini',
+  'Bolivia','Paraguay','Luxembourg','Liechtenstein','San Marino','Vatican',
+  'Armenia','Azerbaijan','Iraq', // Iraq has tiny coast, ignore for simplicity
+]);
+
 let _geminiTurnCounter = 0;
 
 // ── Chamada à API DeepSeek ────────────────────────────────
@@ -204,16 +244,39 @@ function _aiSpawnOneUnit(state, countryName, events) {
   if (existing >= 8) return;
 
   const base = getCountryBaseData(countryName);
+  const isLandlocked = LANDLOCKED.has(countryName);
+  const hasNaval = !!NAVAL_CENTROIDS[countryName];
+
+  // Pick unit type — never naval for landlocked or countries without coast data
   let unitType;
-  if (base.gdp >= 10000) unitType = ['tank_elite','air2_fighter','nav1_destroyer'][Math.floor(Math.random()*3)];
-  else if (base.gdp >= 3000) unitType = ['veh_medium','air2_helicopter','nav2_frigate'][Math.floor(Math.random()*3)];
-  else if (base.gdp >= 1000) unitType = ['motorized','air3_drone','nav3_patrol'][Math.floor(Math.random()*3)];
-  else unitType = 'infantry';
+  if (base.gdp >= 10000) {
+    const pool = isLandlocked || !hasNaval
+      ? ['tank_elite','air2_fighter','air1_stealth']
+      : ['tank_elite','air2_fighter','nav1_destroyer'];
+    unitType = pool[Math.floor(Math.random() * pool.length)];
+  } else if (base.gdp >= 3000) {
+    const pool = isLandlocked || !hasNaval
+      ? ['veh_medium','air2_helicopter','air3_drone']
+      : ['veh_medium','air2_helicopter','nav2_frigate'];
+    unitType = pool[Math.floor(Math.random() * pool.length)];
+  } else if (base.gdp >= 1000) {
+    const pool = isLandlocked || !hasNaval
+      ? ['motorized','air3_drone','infantry']
+      : ['motorized','air3_drone','nav3_patrol'];
+    unitType = pool[Math.floor(Math.random() * pool.length)];
+  } else {
+    unitType = 'infantry';
+  }
+
+  // Use coastal centroid for naval units
+  const isNaval = unitType.startsWith('nav');
+  const spawnBase = isNaval ? NAVAL_CENTROIDS[countryName] : centroid;
+  const jitter = isNaval ? 1.5 : 5;
 
   const unit = createUnit(
     unitType, countryName,
-    centroid.lat + (Math.random() - 0.5) * 5,
-    centroid.lng + (Math.random() - 0.5) * 5,
+    spawnBase.lat + (Math.random() - 0.5) * jitter,
+    spawnBase.lng + (Math.random() - 0.5) * jitter,
     1
   );
   if (!state.units) state.units = [];
