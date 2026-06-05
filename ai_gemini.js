@@ -1,9 +1,9 @@
 // ═══════════════════════════════════════════════════════════
-//  ai_gemini.js — Google Gemini AI para países IA
+//  ai_gemini.js — DeepSeek AI para países IA
 // ═══════════════════════════════════════════════════════════
 
-const GEMINI_API_KEY = 'AIzaSyBh40vXsur0h7rsXgRaAWBmrnIwAqhBaBo';
-const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+const DEEPSEEK_API_KEY = 'sk-f5e4907cb55f433a8ba970a02f05ef48';
+const DEEPSEEK_URL     = 'https://api.deepseek.com/v1/chat/completions';
 
 // Países controlados pelo Gemini (rotaciona grupos a cada turno)
 const GEMINI_COUNTRIES = [
@@ -48,26 +48,31 @@ const AI_CENTROIDS = {
 
 let _geminiTurnCounter = 0;
 
-// ── Chamada à API Gemini ───────────────────────────────────
+// ── Chamada à API DeepSeek ────────────────────────────────
 async function callGeminiAI(prompt) {
   try {
     const ctrl = new AbortController();
     const tid  = setTimeout(() => ctrl.abort(), 8000);
-    const res = await fetch(GEMINI_URL, {
+    const res = await fetch(DEEPSEEK_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type':  'application/json',
+        'Authorization': `Bearer ${DEEPSEEK_API_KEY}`,
+      },
       body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.8, maxOutputTokens: 600 },
+        model:       'deepseek-chat',
+        messages:    [{ role: 'user', content: prompt }],
+        temperature: 0.8,
+        max_tokens:  600,
       }),
       signal: ctrl.signal,
     });
     clearTimeout(tid);
-    if (!res.ok) { console.warn('Gemini HTTP', res.status); return null; }
+    if (!res.ok) { console.warn('DeepSeek HTTP', res.status); return null; }
     const data = await res.json();
-    return data?.candidates?.[0]?.content?.parts?.[0]?.text || null;
+    return data?.choices?.[0]?.message?.content || null;
   } catch (e) {
-    console.warn('Gemini falhou:', e.message);
+    console.warn('DeepSeek falhou:', e.message);
     return null;
   }
 }
