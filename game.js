@@ -257,6 +257,17 @@ async function doEndTurn() {
   btn.textContent = 'FIM DE TURNO';
 }
 
+// ── Menu principal (volta sem apagar save) ─────────────────
+function goToMainMenu() {
+  document.getElementById('header').style.display    = 'none';
+  document.getElementById('side-panel').style.display= 'none';
+  window._selectedUnitId   = null;
+  window._selectedCountry  = null;
+  window._selectedProvince = null;
+  window._selectedCity     = null;
+  showLoginScreen();
+}
+
 // ── Reset / new game ───────────────────────────────────────
 async function resetGame() {
   if (!confirm('Apagar o save e comecar uma nova campanha?')) return;
@@ -265,6 +276,7 @@ async function resetGame() {
   location.reload();
 }
 
+window.goToMainMenu       = goToMainMenu;
 window.resetGame          = resetGame;
 window.renderAll          = renderAll;
 window.showLoginScreen    = showLoginScreen;

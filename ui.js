@@ -362,7 +362,8 @@ function renderGovPanel(state) {
       ${ministryCards}
     </div>
     <div class="panel-section">
-      <button class="btn-primary btn-danger" onclick="resetGame()" style="margin-top:8px">NOVA CAMPANHA</button>
+      <button class="btn-primary" onclick="goToMainMenu()" style="margin-top:8px">MENU PRINCIPAL</button>
+      <button class="btn-primary btn-danger" onclick="resetGame()" style="margin-top:4px">NOVA CAMPANHA</button>
     </div>
   `;
 }
