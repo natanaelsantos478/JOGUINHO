@@ -3,6 +3,7 @@
 // ═══════════════════════════════════════════════════════════
 
 let _map = null;
+function getMap() { return _map; }
 let _countriesLayer = null;
 let _unitsLayer = null;
 let _structuresLayer = null;

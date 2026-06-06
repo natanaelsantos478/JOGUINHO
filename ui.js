@@ -6,6 +6,24 @@ let _activeTab = 'info';
 let _selectedCountryForModal = null;
 let _notifTimer = null;
 
+const UNIT_REAL_PHOTOS = {
+  infantry:        'https://commons.wikimedia.org/wiki/Special:FilePath/Soldiers_of_the_3rd_U.S._Infantry_Regiment.jpg',
+  motorized:       'https://commons.wikimedia.org/wiki/Special:FilePath/M113-latrun-1.jpg',
+  veh_light:       'https://commons.wikimedia.org/wiki/Special:FilePath/Stryker-latrun-1.jpg',
+  veh_medium:      'https://commons.wikimedia.org/wiki/Special:FilePath/Bradley_IFV.jpg',
+  tank_elite:      'https://commons.wikimedia.org/wiki/Special:FilePath/M1A2_Abrams_on_patrol.jpg',
+  artillery:       'https://commons.wikimedia.org/wiki/Special:FilePath/M270_Multiple_Launch_Rocket_System.jpg',
+  air3_drone:      'https://commons.wikimedia.org/wiki/Special:FilePath/MQ-1_Predator_unmanned_aircraft.jpg',
+  air2_fighter:    'https://commons.wikimedia.org/wiki/Special:FilePath/F-16_Fighting_Falcon_in_flight.jpg',
+  air2_helicopter: 'https://commons.wikimedia.org/wiki/Special:FilePath/AH-64D_Apache_Longbow.jpg',
+  air1_stealth:    'https://commons.wikimedia.org/wiki/Special:FilePath/F-22_Raptor_edit1.jpg',
+  air_transport:   'https://commons.wikimedia.org/wiki/Special:FilePath/C-17_Globemaster_III_top-view.jpg',
+  nav3_patrol:     'https://commons.wikimedia.org/wiki/Special:FilePath/USCGC_Adak_WPB-1333.jpg',
+  nav2_frigate:    'https://commons.wikimedia.org/wiki/Special:FilePath/USS_Klakring_FFG-42.jpg',
+  nav1_destroyer:  'https://commons.wikimedia.org/wiki/Special:FilePath/USS_Arleigh_Burke_DDG-51.jpg',
+  nav1_carrier:    'https://commons.wikimedia.org/wiki/Special:FilePath/USS_Ronald_Reagan_(CVN-76).jpg',
+};
+
 // ── Sprite helper: retorna <img> ou div texto ──────────────
 function _unitImgHtml(unitType, size) {
   size = size || 40;
@@ -212,29 +230,31 @@ function renderMilitaryPanel(state) {
   const unitCards = playerUnits.map(u => {
     const def = UNIT_DEFS[u.type];
     const selected = window._selectedUnitId === u.id;
-    const hpPct = Math.round(u.hp);
-    const enPct = Math.round(u.energy / u.energyCap * 100);
-    const xpPct = u.level < 5 ? Math.round((u.xp / (XP_THRESHOLDS[u.level] || 1)) * 100) : 100;
+    const hpPct  = Math.round(u.hp);
+    const enPct  = Math.round(u.energy / u.energyCap * 100);
+    const xpPct  = u.level < 5 ? Math.round((u.xp / (XP_THRESHOLDS[u.level] || 1)) * 100) : 100;
+    const hasPending = u.pendingLat != null;
     return `
-      <div class="unit-card ${selected ? 'selected' : ''}" onclick="uiSelectUnit('${u.id}')">
-        <div class="unit-card-header" style="gap:10px;align-items:flex-start;">
-          ${_unitImgHtml(u.type, 44)}
-          <div style="flex:1;min-width:0;">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;">
-              <span class="unit-name" style="font-size:0.78rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${u.name}</span>
-              <span class="unit-level">Lv${u.level}</span>
-            </div>
-            <div style="font-size:0.7rem;color:var(--muted);margin-bottom:5px">${def ? def.label : u.type} — ${levelName(u.level)}</div>
-            <div class="unit-bars">
-              <div class="bar-row"><span class="bar-label">HP</span><div class="bar-track"><div class="bar-fill hp" style="width:${hpPct}%"></div></div><span style="font-size:0.68rem;color:var(--muted)">${hpPct}%</span></div>
-              <div class="bar-row"><span class="bar-label">EN</span><div class="bar-track"><div class="bar-fill energy" style="width:${enPct}%"></div></div><span style="font-size:0.68rem;color:var(--muted)">${enPct}%</span></div>
-              <div class="bar-row"><span class="bar-label">XP</span><div class="bar-track"><div class="bar-fill xp" style="width:${xpPct}%"></div></div><span style="font-size:0.68rem;color:var(--muted)">${u.xp}xp</span></div>
-            </div>
-          </div>
+      <div class="unit-card${selected ? ' selected' : ''}" style="display:flex;gap:10px;align-items:flex-start;padding:10px;" onclick="openUnitDetail('${u.id}')">
+        <div style="flex-shrink:0;cursor:pointer;">
+          ${_unitImgHtml(u.type, 64)}
+          ${hasPending ? `<div style="text-align:center;font-size:0.6rem;color:#e02030;margin-top:3px;font-family:'Cinzel',serif;">EM MARCHA</div>` : ''}
         </div>
-        <div style="margin-top:8px;display:flex;gap:6px;">
-          <button class="btn-primary" style="flex:1;padding:4px 6px;font-size:0.7rem" onclick="uiSelectUnit('${u.id}');event.stopPropagation()">MOVER</button>
-          <button class="btn-primary btn-danger" style="flex:1;padding:4px 6px;font-size:0.7rem" onclick="uiDisbandUnit('${u.id}');event.stopPropagation()">DISPENSAR</button>
+        <div style="flex:1;min-width:0;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
+            <span class="unit-name" style="font-size:0.8rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${u.name}</span>
+            <span class="unit-level">Lv${u.level}</span>
+          </div>
+          <div style="font-size:0.68rem;color:#5a7a55;margin-bottom:6px">${def ? def.label : u.type}</div>
+          <div class="unit-bars">
+            <div class="bar-row"><span class="bar-label" style="color:#5a7a55">HP</span><div class="bar-track"><div class="bar-fill hp" style="width:${hpPct}%"></div></div><span style="font-size:0.65rem;color:#5a7a55">${hpPct}%</span></div>
+            <div class="bar-row"><span class="bar-label" style="color:#5a7a55">EN</span><div class="bar-track"><div class="bar-fill energy" style="width:${enPct}%"></div></div><span style="font-size:0.65rem;color:#5a7a55">${enPct}%</span></div>
+            <div class="bar-row"><span class="bar-label" style="color:#5a7a55">XP</span><div class="bar-track"><div class="bar-fill xp" style="width:${xpPct}%"></div></div><span style="font-size:0.65rem;color:#5a7a55">${u.xp}xp</span></div>
+          </div>
+          <div style="margin-top:8px;display:flex;gap:5px;" onclick="event.stopPropagation()">
+            <button class="btn-military" style="flex:1;padding:4px 5px;font-size:0.65rem" onclick="uiSelectUnit('${u.id}')">MOVER</button>
+            <button class="btn-military danger" style="flex:1;padding:4px 5px;font-size:0.65rem" onclick="uiDisbandUnit('${u.id}')">DISPENSAR</button>
+          </div>
         </div>
       </div>
     `;
@@ -242,20 +262,82 @@ function renderMilitaryPanel(state) {
 
   return `
     <div class="panel-section">
-      <div class="panel-title">SUAS FORCAS (${playerUnits.length})</div>
-      <button class="btn-primary btn-success" onclick="openRecruitModal()">+ RECRUTAR UNIDADE</button>
-      ${playerUnits.length === 0 ? '<p style="color:var(--muted);font-size:0.82rem;margin-top:8px">Sem unidades. Recrute sua primeira forca.</p>' : unitCards}
+      <div class="panel-title">SUAS FORÇAS (${playerUnits.length})</div>
+      <button class="btn-military success" onclick="openRecruitModal()">+ RECRUTAR UNIDADE</button>
+      ${playerUnits.length === 0 ? '<p style="color:#5a7a55;font-size:0.82rem;margin-top:8px">Sem unidades. Recrute sua primeira força.</p>' : unitCards}
     </div>
     ${enemyUnits.length > 0 ? `
     <div class="panel-section">
-      <div class="panel-title">FORCAS INIMIGAS VISIVEIS (${enemyUnits.length})</div>
-      ${enemyUnits.slice(0, 8).map(u => {
+      <div class="panel-title">FORÇAS INIMIGAS (${enemyUnits.length})</div>
+      ${enemyUnits.slice(0, 6).map(u => {
         const def = UNIT_DEFS[u.type];
-        return `<div class="unit-card"><div class="unit-card-header"><span class="unit-name">${u.name}</span><span class="unit-level" style="color:var(--red)">${u.country}</span></div><div style="font-size:0.72rem;color:var(--muted)">${def ? def.label : u.type} — HP ${Math.round(u.hp)}%</div></div>`;
+        return `<div class="unit-card" style="display:flex;gap:8px;align-items:center;padding:8px;">
+          ${_unitImgHtml(u.type, 40)}
+          <div>
+            <div class="unit-name" style="font-size:0.75rem">${u.name}</div>
+            <div style="font-size:0.68rem;color:#c06060">${u.country} — ${def ? def.label : u.type}</div>
+          </div>
+        </div>`;
       }).join('')}
     </div>
     ` : ''}
   `;
+}
+
+// ── UNIT DETAIL MODAL ──────────────────────────────────────
+function openUnitDetail(unitId) {
+  const state = window.GS;
+  if (!state) return;
+  const unit = (state.units || []).find(u => u.id === unitId);
+  if (!unit) return;
+  const def = UNIT_DEFS[unit.type];
+  if (!def) return;
+
+  const modal = document.getElementById('unit-detail-modal');
+  const photo = document.getElementById('unit-detail-photo');
+  const fallback = document.getElementById('unit-detail-photo-fallback');
+  const nameEl = document.getElementById('unit-detail-name');
+  const typeEl = document.getElementById('unit-detail-type');
+  const statsEl = document.getElementById('unit-detail-stats');
+
+  // Photo
+  const photoUrl = UNIT_REAL_PHOTOS[unit.type] || '';
+  photo.style.display = 'block';
+  fallback.style.display = 'none';
+  if (photoUrl) {
+    photo.src = photoUrl;
+  } else {
+    photo.style.display = 'none';
+    fallback.style.display = 'flex';
+    fallback.innerHTML = _unitImgHtml(unit.type, 80);
+  }
+
+  nameEl.textContent = unit.name;
+  const domainLabel = { ground: 'TERRESTRE', air: 'AEREO', naval: 'NAVAL' }[def.domain] || def.domain;
+  typeEl.textContent = `${def.label.toUpperCase()} — ${domainLabel} — TIER ${def.tier}`;
+
+  const hpPct  = Math.round(unit.hp);
+  const enPct  = Math.round(unit.energy / unit.energyCap * 100);
+  const xpPct  = unit.level < 5 ? Math.round((unit.xp / (XP_THRESHOLDS[unit.level] || 1)) * 100) : 100;
+
+  statsEl.innerHTML = `
+    <div class="detail-stat-row"><span class="detail-stat-label">Nível</span><span class="detail-stat-value">${unit.level} — ${levelName(unit.level)}</span></div>
+    <div class="detail-stat-row"><span class="detail-stat-label">HP</span><span class="detail-stat-value">${hpPct}%</span></div>
+    <div class="detail-stat-row"><span class="detail-stat-label">Energia</span><span class="detail-stat-value">${enPct}%</span></div>
+    <div class="detail-stat-row"><span class="detail-stat-label">XP</span><span class="detail-stat-value">${unit.xp} / ${XP_THRESHOLDS[unit.level] || '—'}</span></div>
+    <div class="detail-stat-row"><span class="detail-stat-label">Ataque</span><span class="detail-stat-value">${def.atk}</span></div>
+    <div class="detail-stat-row"><span class="detail-stat-label">Defesa</span><span class="detail-stat-value">${def.def}</span></div>
+    <div class="detail-stat-row"><span class="detail-stat-label">Velocidade</span><span class="detail-stat-value">${def.speed} km/h</span></div>
+    <div class="detail-stat-row"><span class="detail-stat-label">Alcance</span><span class="detail-stat-value">${def.range} km</span></div>
+    <div class="detail-stat-row"><span class="detail-stat-label">País</span><span class="detail-stat-value">${unit.country}</span></div>
+    <div class="detail-stat-row" style="border:none"><span class="detail-stat-label">Posição</span><span class="detail-stat-value">${unit.lat.toFixed(2)}°, ${unit.lng.toFixed(2)}°</span></div>
+  `;
+
+  modal.classList.add('visible');
+}
+
+function closeUnitDetail() {
+  document.getElementById('unit-detail-modal').classList.remove('visible');
 }
 
 // ── BUILD PANEL ────────────────────────────────────────────

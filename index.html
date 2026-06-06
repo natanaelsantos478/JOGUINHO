@@ -393,6 +393,95 @@
       animation: routeMarch 0.45s linear infinite;
     }
 
+    /* ─── MILITARY THEME ─── */
+    #side-panel {
+      background: linear-gradient(180deg, #0a1208 0%, #0d1a0d 60%, #0b1410 100%);
+      border-left: 1px solid #1e3520;
+    }
+    #panel-tabs {
+      background: linear-gradient(90deg, #0a1208, #111e10, #0a1208);
+      border-bottom: 1px solid #2a4020;
+    }
+    .tab-btn { color: #5a7a55; border-bottom-color: transparent; }
+    .tab-btn:hover { color: #8aaa80; }
+    .tab-btn.active { color: #b8d890; border-bottom-color: #b8d890; }
+    #panel-content { background: transparent; }
+
+    .panel-title {
+      color: #b8d890;
+      border-bottom-color: #2a4020;
+      letter-spacing: 3px;
+      text-shadow: 0 0 8px rgba(100,180,60,0.3);
+    }
+    .panel-label { color: #5a7a55; }
+    .panel-value { color: #c8d8b8; }
+    .panel-section { border-bottom: 1px solid #1a2a15; padding-bottom: 12px; margin-bottom: 16px; }
+
+    /* military unit card */
+    .unit-card {
+      background: linear-gradient(135deg, #0c1a0a 0%, #121e10 50%, #0e1c0c 100%);
+      border: 1px solid #2a4020;
+      border-left: 3px solid #4a7a30;
+    }
+    .unit-card:hover, .unit-card.selected {
+      border-color: #6aaa40;
+      border-left-color: #8acc50;
+      box-shadow: 0 0 10px rgba(80,160,40,0.2);
+    }
+    .unit-name { color: #c8d8a0; font-family: 'Cinzel', serif; }
+    .unit-level { color: #8acc50; background: rgba(80,160,40,0.15); padding: 1px 6px; border-radius: 3px; }
+
+    /* military btn override */
+    .btn-military {
+      width: 100%; padding: 8px 12px; margin: 3px 0;
+      background: linear-gradient(135deg, rgba(40,80,20,0.4), rgba(20,50,10,0.6));
+      border: 1px solid #3a6020;
+      color: #a0c870; font-family: 'Cinzel', serif; font-size: 0.72rem;
+      letter-spacing: 1px; cursor: pointer; border-radius: 3px;
+      transition: all 0.2s; text-align: left;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+    }
+    .btn-military:hover { background: linear-gradient(135deg, rgba(60,110,30,0.5), rgba(30,70,15,0.7)); border-color: #5a9030; color: #c8e890; }
+    .btn-military:disabled { opacity: 0.35; cursor: not-allowed; }
+    .btn-military.danger { border-color: #7a2020; color: #d06060; background: linear-gradient(135deg, rgba(80,20,20,0.4), rgba(50,10,10,0.6)); }
+    .btn-military.success { border-color: #205020; color: #60c060; background: linear-gradient(135deg, rgba(20,60,20,0.4), rgba(10,40,10,0.6)); }
+
+    /* bar fills for military */
+    .bar-fill.hp     { background: linear-gradient(90deg, #2a7a20, #50c030); }
+    .bar-fill.energy { background: linear-gradient(90deg, #204880, #3070c0); }
+    .bar-fill.xp     { background: linear-gradient(90deg, #7a6010, #c0a030); }
+    .bar-track { background: #0e1a0a; }
+
+    /* ─── UNIT DETAIL MODAL ─── */
+    #unit-detail-modal {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.88);
+      display: none; z-index: 2500; align-items: center; justify-content: center;
+    }
+    #unit-detail-modal.visible { display: flex; }
+    #unit-detail-inner {
+      background: linear-gradient(160deg, #0a1208 0%, #0e1e0c 60%, #0b1810 100%);
+      border: 1px solid #2a4020;
+      border-radius: 8px;
+      width: 480px; max-width: 96vw; max-height: 88vh;
+      overflow-y: auto; display: flex; flex-direction: column;
+    }
+    #unit-detail-photo {
+      width: 100%; height: 220px; object-fit: cover;
+      border-radius: 8px 8px 0 0;
+      filter: saturate(0.8) contrast(1.1);
+    }
+    #unit-detail-photo-fallback {
+      width: 100%; height: 180px;
+      display: flex; align-items: center; justify-content: center;
+      background: #0a1208;
+    }
+    #unit-detail-body { padding: 18px 20px; }
+    #unit-detail-name { font-family: 'Cinzel', serif; font-size: 1.2rem; color: #b8d890; letter-spacing: 2px; margin-bottom: 4px; }
+    #unit-detail-type { font-size: 0.8rem; color: #5a7a55; margin-bottom: 14px; letter-spacing: 1px; }
+    .detail-stat-row { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #1a2a15; font-size: 0.85rem; }
+    .detail-stat-label { color: #5a7a55; }
+    .detail-stat-value { color: #c8d8a0; font-variant-numeric: tabular-nums; }
+
     /* ─── RESPONSIVE ─── */
     @media (max-width: 767px) {
       :root { --panel-w: 0px; }
@@ -501,6 +590,20 @@
       <h3>CONSTRUIR ESTRUTURA</h3>
       <div id="build-list"></div>
       <button class="btn-primary recruit-close" onclick="closeBuildModal()">FECHAR</button>
+    </div>
+  </div>
+
+  <!-- UNIT DETAIL MODAL -->
+  <div id="unit-detail-modal">
+    <div id="unit-detail-inner">
+      <img id="unit-detail-photo" src="" alt="" onerror="this.style.display='none';document.getElementById('unit-detail-photo-fallback').style.display='flex';" />
+      <div id="unit-detail-photo-fallback" style="display:none"></div>
+      <div id="unit-detail-body">
+        <div id="unit-detail-name"></div>
+        <div id="unit-detail-type"></div>
+        <div id="unit-detail-stats"></div>
+        <button class="btn-military" onclick="closeUnitDetail()" style="margin-top:16px;text-align:center;">FECHAR</button>
+      </div>
     </div>
   </div>
 

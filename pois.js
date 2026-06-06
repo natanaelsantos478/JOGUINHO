@@ -598,25 +598,82 @@ function _buildMilitaryMarkers(milAirDataUrl, milNavDataUrl, milArmyDataUrl) {
 function _buildCityMarkers(metropolisDataUrl, cityDataUrl) {
   _poisCities.length = 0;
   for (const c of CITIES) {
-    const isCapital   = c.tier === 1;
-    const size        = isCapital ? 22 : 18;
-    const dataUrl     = isCapital ? metropolisDataUrl : cityDataUrl;
-    const borderColor = isCapital ? '#f0c040' : '#c0a030';
-    const bg          = isCapital ? '#2a1e00' : '#1a1500';
-    const label       = isCapital ? 'CAP' : 'CITY';
-    const dotColor    = isCapital ? '#f0c040' : '#c8a030';
-    const dotSize     = isCapital ? 8 : 6;
-    const dotIcon     = _makePoiDotIcon(dotColor, dotSize);
-    const fullIcon    = _makePoiIcon(dataUrl, size, borderColor, bg, label);
-    const popStr      = c.pop ? `<br>Pop: ${c.pop.toLocaleString()}` : '';
+    const isCapital = c.tier === 1;
+    const dotColor  = isCapital ? '#f0c040' : '#c8a030';
+    const dotSize   = isCapital ? 8 : 6;
+    const dotIcon   = _makePoiDotIcon(dotColor, dotSize);
+    const popStr    = c.pop ? `<br>Pop: ${c.pop.toLocaleString()}` : '';
     const tip = `<b>${c.name}</b><br>${c.country}${popStr}`;
-    const dotMarker  = L.marker([c.lat, c.lng], { icon: dotIcon,  interactive: true }).bindTooltip(tip, { direction: 'top', offset: [0, -4]         });
-    const fullMarker = L.marker([c.lat, c.lng], { icon: fullIcon, interactive: true }).bindTooltip(tip, { direction: 'top', offset: [0, -size/2 - 2] });
+    const dotMarker = L.marker([c.lat, c.lng], { icon: dotIcon, interactive: true }).bindTooltip(tip, { direction: 'top', offset: [0, -4] });
     const clickHandler = () => { if (typeof onCityMapClick === 'function') onCityMapClick(c); };
-    dotMarker.on('click',  clickHandler);
-    fullMarker.on('click', clickHandler);
-    _poisCities.push({ dotMarker, fullMarker, tier: c.tier });
+    dotMarker.on('click', clickHandler);
+    _poisCities.push({ dotMarker, tier: c.tier, cityData: c, metropolisDataUrl, cityDataUrl });
   }
+}
+
+// ── Build rich city full marker with GS data ───────────────
+const _STRUCT_DOT_COLORS = {
+  admin_center:     '#c8a84b',
+  barracks:         '#e04040',
+  artillery_center: '#e09040',
+  airport:          '#4090e0',
+  seaport:          '#40c0e0',
+  radar_station:    '#b0b0b0',
+  missile_silo:     '#60c060',
+  nuclear_plant:    '#90ee90',
+  nuclear_bunker:   '#3a9a3a',
+};
+
+function _buildCityFullMarker(item) {
+  const c = item.cityData;
+  const isCapital   = c.tier === 1;
+  const spriteSize  = isCapital ? 22 : 18;
+  const dataUrl     = isCapital ? item.metropolisDataUrl : item.cityDataUrl;
+  const borderColor = isCapital ? '#f0c040' : '#c0a030';
+  const nameColor   = isCapital ? '#f0c040' : '#c8a030';
+
+  // Sprite image
+  const imgHtml = dataUrl
+    ? `<img src="${dataUrl}" width="${spriteSize}" height="${spriteSize}" style="border-radius:3px;border:1.5px solid ${borderColor};display:block;flex-shrink:0;" />`
+    : `<div style="width:${spriteSize}px;height:${spriteSize}px;border-radius:3px;background:#1a1500;border:1px solid ${borderColor};display:flex;align-items:center;justify-content:center;font-size:7px;color:${borderColor};font-family:'Cinzel',serif;">${isCapital ? 'CAP' : 'CTY'}</div>`;
+
+  // GS city state
+  const cs = window.GS && window.GS.cities && window.GS.cities[c.name];
+  const levelName = cs
+    ? ((typeof CITY_LEVEL_META !== 'undefined' && CITY_LEVEL_META[cs.level]) ? CITY_LEVEL_META[cs.level].name : `Lv${cs.level}`)
+    : '';
+
+  // Structure dots
+  let dotsHtml = '';
+  if (cs && cs.structures && Object.keys(cs.structures).length > 0) {
+    const dots = Object.entries(cs.structures).map(([t]) => {
+      const col = _STRUCT_DOT_COLORS[t] || '#aaa';
+      return `<span style="display:inline-block;width:5px;height:5px;border-radius:50%;background:${col};flex-shrink:0;"></span>`;
+    }).join('');
+    dotsHtml = `<div style="display:flex;flex-wrap:wrap;justify-content:center;gap:2px;margin-top:2px;">${dots}</div>`;
+  }
+
+  const labelHtml = `
+    <div style="text-align:center;pointer-events:none;">
+      <div style="font-family:'Cinzel',serif;font-size:7px;color:${nameColor};white-space:nowrap;text-shadow:0 1px 3px #000,0 0 6px #000;line-height:1.3;">${c.name}</div>
+      ${levelName ? `<div style="font-size:6px;color:#aaa;white-space:nowrap;text-shadow:0 1px 3px #000;">${levelName}</div>` : ''}
+      ${dotsHtml}
+    </div>`;
+
+  const iconW = Math.max(spriteSize, 68);
+  const icon = L.divIcon({
+    html: `<div style="display:flex;flex-direction:column;align-items:center;width:${iconW}px;">${imgHtml}${labelHtml}</div>`,
+    iconSize:   [iconW, spriteSize + 28],
+    iconAnchor: [iconW / 2, spriteSize / 2],
+    className:  '',
+  });
+
+  const popStr = c.pop ? `<br>Pop: ${c.pop.toLocaleString()}` : '';
+  const tip = `<b>${c.name}</b><br>${c.country}${popStr}`;
+  const marker = L.marker([c.lat, c.lng], { icon, interactive: true })
+    .bindTooltip(tip, { direction: 'top', offset: [0, -spriteSize / 2 - 2] });
+  marker.on('click', () => { if (typeof onCityMapClick === 'function') onCityMapClick(c); });
+  return marker;
 }
 
 // ══════════════════════════════════════════════════════════
@@ -658,7 +715,11 @@ function updatePoisMarkers(zoom) {
   for (const item of _poisCities) {
     const threshold = item.tier === 1 ? POI_ZOOM.city1 : POI_ZOOM.city2;
     if (zoom < threshold) continue;
-    window._poisLayer.addLayer(useDot ? item.dotMarker : item.fullMarker);
+    if (useDot) {
+      window._poisLayer.addLayer(item.dotMarker);
+    } else {
+      window._poisLayer.addLayer(_buildCityFullMarker(item));
+    }
   }
 
   for (const item of _poisPorts) {

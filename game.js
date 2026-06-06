@@ -221,6 +221,10 @@ function renderAll() {
   renderUnits(state);
   renderStructures(state);
   renderPanelForTab(_activeTab);
+  // Refresh city markers so structure dots stay up to date
+  if (typeof updatePoisMarkers === 'function' && typeof getMap === 'function' && getMap()) {
+    updatePoisMarkers(getMap().getZoom());
+  }
 }
 
 // ── End turn ───────────────────────────────────────────────
