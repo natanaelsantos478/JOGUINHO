@@ -25,6 +25,107 @@ const UNIT_REAL_PHOTOS = {
   nav1_carrier:    'https://commons.wikimedia.org/wiki/Special:FilePath/USS_Ronald_Reagan_(CVN-76).jpg',
 };
 
+const RESEARCH_REAL_PHOTOS = {
+  // Aviação — Caças
+  air2_f16_falcon:           'https://commons.wikimedia.org/wiki/Special:FilePath/F-16_Fighting_Falcon_in_flight.jpg',
+  air2_fa18_hornet:          'https://commons.wikimedia.org/wiki/Special:FilePath/FA-18_Hornet_breaking_hard.jpg',
+  air1_eurofighter_typhoon:  'https://commons.wikimedia.org/wiki/Special:FilePath/Eurofighter_typhoon_inflight_2.jpg',
+  air1_f22_raptor:           'https://commons.wikimedia.org/wiki/Special:FilePath/F-22_Raptor_edit1.jpg',
+  // Bombardeiros
+  air2_a10_warthog:          'https://commons.wikimedia.org/wiki/Special:FilePath/A-10_Thunderbolt_II_In-flight-2.jpg',
+  air2_su25_frogfoot:        'https://commons.wikimedia.org/wiki/Special:FilePath/Sukhoi_Su-25_in_formation_(cropped).jpg',
+  air1_b2_spirit:            'https://commons.wikimedia.org/wiki/Special:FilePath/B-2_Spirit_original.jpg',
+  air1_b21_raider:           'https://commons.wikimedia.org/wiki/Special:FilePath/B-21_Raider_first_flight_(cropped).jpg',
+  // Helicópteros
+  air2_apache_ah64:          'https://commons.wikimedia.org/wiki/Special:FilePath/AH-64D_Apache_Longbow.jpg',
+  air2_mi28_havoc:           'https://commons.wikimedia.org/wiki/Special:FilePath/Mil_Mi-28N.jpg',
+  air2_ka52_alligator:       'https://commons.wikimedia.org/wiki/Special:FilePath/Ka-52_MAKS-2009_(2).jpg',
+  // Drones
+  air3_bayraktar_tb2:        'https://commons.wikimedia.org/wiki/Special:FilePath/Bayraktar_TB2_airborne.jpg',
+  air3_mq9_reaper:           'https://commons.wikimedia.org/wiki/Special:FilePath/MQ-9_Reaper_-_090609-F-0000M-777.jpg',
+  air3_rq4_global_hawk:      'https://commons.wikimedia.org/wiki/Special:FilePath/RQ-4_Global_Hawk.jpg',
+  // Transporte
+  air3_c130_hercules:        'https://commons.wikimedia.org/wiki/Special:FilePath/C-130_Hercules_2009.jpg',
+  airsup_c17_globemaster:    'https://commons.wikimedia.org/wiki/Special:FilePath/C-17_Globemaster_III_top-view.jpg',
+  airsup_c5_galaxy:          'https://commons.wikimedia.org/wiki/Special:FilePath/C-5_Galaxy_RAF_Mildenhall.jpg',
+  // Terrestre — Infantaria
+  sol_infantry_soldier:      'https://commons.wikimedia.org/wiki/Special:FilePath/Soldiers_of_the_3rd_U.S._Infantry_Regiment.jpg',
+  sol_army_ranger:           'https://commons.wikimedia.org/wiki/Special:FilePath/75th_Ranger_Regiment_training.jpg',
+  sol_special_forces:        'https://commons.wikimedia.org/wiki/Special:FilePath/US_Navy_SEALs_training.jpg',
+  sol_paratrooper:           'https://commons.wikimedia.org/wiki/Special:FilePath/Paratroopers_jump_from_C-17.jpg',
+  // Veículos Leves
+  veh1_humvee_hmmwv:         'https://commons.wikimedia.org/wiki/Special:FilePath/Humvee_2005.jpg',
+  veh1_lav25_armored:        'https://commons.wikimedia.org/wiki/Special:FilePath/LAV-25.jpg',
+  veh1_oshkosh_matv:         'https://commons.wikimedia.org/wiki/Special:FilePath/Oshkosh_M-ATV.jpg',
+  // IFV / APC
+  veh1_m113_apc:             'https://commons.wikimedia.org/wiki/Special:FilePath/M113-latrun-1.jpg',
+  veh2_bradley_m2:           'https://commons.wikimedia.org/wiki/Special:FilePath/Bradley_IFV.jpg',
+  veh2_cv90_ifv:             'https://commons.wikimedia.org/wiki/Special:FilePath/CV9040C_-_Livrustkammaren.jpg',
+  veh2_bmp3_russian:         'https://commons.wikimedia.org/wiki/Special:FilePath/BMP-3_in_Moscow_2009_Victory_parade.jpg',
+  // Tanques
+  veh2_t90_tank:             'https://commons.wikimedia.org/wiki/Special:FilePath/T-90A_MBT.jpg',
+  tank1_leopard2a7:          'https://commons.wikimedia.org/wiki/Special:FilePath/Leopard_2A7plus.jpg',
+  tank1_m1a2_abrams:         'https://commons.wikimedia.org/wiki/Special:FilePath/M1A2_Abrams_on_patrol.jpg',
+  tank1_t14_armata:          'https://commons.wikimedia.org/wiki/Special:FilePath/T-14_Armata_in_Moscow_2015_Rehearsal_1.jpg',
+  // Artilharia
+  veh2_m109_paladin:         'https://commons.wikimedia.org/wiki/Special:FilePath/M109A6-Paladin-Ft-Sill.jpg',
+  veh2_mlrs_m270:            'https://commons.wikimedia.org/wiki/Special:FilePath/M270_Multiple_Launch_Rocket_System.jpg',
+  veh2_bm30_smerch:          'https://commons.wikimedia.org/wiki/Special:FilePath/BM-30_Smerch_rehearsal_2010.jpg',
+  // Naval — Patrulha
+  nav3_river_patrol:         'https://commons.wikimedia.org/wiki/Special:FilePath/USCGC_Adak_WPB-1333.jpg',
+  nav3_visby_corvette:       'https://commons.wikimedia.org/wiki/Special:FilePath/HMS_Helsingborg_K23_(cropped).jpg',
+  nav3_lcs_freedom:          'https://commons.wikimedia.org/wiki/Special:FilePath/USS_Freedom_(LCS-1).jpg',
+  // Fragatas
+  nav2_fremm_frigate:        'https://commons.wikimedia.org/wiki/Special:FilePath/FREMM_Aquitaine_D650.jpg',
+  nav2_type26_frigate:       'https://commons.wikimedia.org/wiki/Special:FilePath/HMS_Glasgow_(F86)_under_construction.jpg',
+  nav2_ticonderoga_cruiser:  'https://commons.wikimedia.org/wiki/Special:FilePath/USS_Bunker_Hill_(CG-52)_underway.jpg',
+  nav2_kirov_battlecruiser:  'https://commons.wikimedia.org/wiki/Special:FilePath/Kirov_class_battlecruiser_2.jpg',
+  // Destróieres
+  nav1_arleigh_burke:        'https://commons.wikimedia.org/wiki/Special:FilePath/USS_Arleigh_Burke_DDG-51.jpg',
+  nav1_type45_daring:        'https://commons.wikimedia.org/wiki/Special:FilePath/HMS_Daring_D32.jpg',
+  nav1_zumwalt_destroyer:    'https://commons.wikimedia.org/wiki/Special:FilePath/USS_Zumwalt_(DDG-1000)_underway.jpg',
+  // Submarinos
+  nav2_losangeles_submarine: 'https://commons.wikimedia.org/wiki/Special:FilePath/USS_Providence_(SSN-719).jpg',
+  nav1_virginia_submarine:   'https://commons.wikimedia.org/wiki/Special:FilePath/PCU_Virginia_(SSN-774)_underway.jpg',
+  nav1_yasen_submarine:      'https://commons.wikimedia.org/wiki/Special:FilePath/K-329_Severodvinsk_(2).jpg',
+  // Porta-Aviões
+  nav1_kuznetsov_carrier:    'https://commons.wikimedia.org/wiki/Special:FilePath/Admiral_Kuznetsov_2012.jpg',
+  nav1_queen_elizabeth_carrier: 'https://commons.wikimedia.org/wiki/Special:FilePath/HMS_Queen_Elizabeth_R08.jpg',
+  nav1_gerald_ford_carrier:  'https://commons.wikimedia.org/wiki/Special:FilePath/USS_Gerald_R._Ford_(CVN-78)_underway.jpg',
+  // Armamentos — Defesa Aérea
+  grdsup_patriot_battery:    'https://commons.wikimedia.org/wiki/Special:FilePath/Patriot_missile_battery_15miles_from_Kuwait_City.jpg',
+  grdsup_s400_tel:           'https://commons.wikimedia.org/wiki/Special:FilePath/S-400_Triumf_on_Red_Square_2010.jpg',
+  grdsup_iron_dome:          'https://commons.wikimedia.org/wiki/Special:FilePath/Iron_Dome_battery_near_Ashkelon.jpg',
+  // Mísseis
+  wpn_cruise_missile:        'https://commons.wikimedia.org/wiki/Special:FilePath/Tomahawk_Block_IV_cruise_missile.jpg',
+  wpn_antiship_missile:      'https://commons.wikimedia.org/wiki/Special:FilePath/Harpoon_missile_being_launched_from_USS_Hayler.jpg',
+  wpn_bunker_buster:         'https://commons.wikimedia.org/wiki/Special:FilePath/Massive_Ordnance_Penetrator.jpg',
+  // Anti-Tanque
+  wpn_rpg:                   'https://commons.wikimedia.org/wiki/Special:FilePath/RPG-7_detachment.jpg',
+  wpn_antitank_missile:      'https://commons.wikimedia.org/wiki/Special:FilePath/Javelin_missile_system.jpg',
+  // Munições
+  wpn_artillery_shell:       'https://commons.wikimedia.org/wiki/Special:FilePath/155mm_shells_in_Iraq.jpg',
+  wpn_cluster_bomb:          'https://commons.wikimedia.org/wiki/Special:FilePath/Cluster_bomb_Mk-20.jpg',
+  wpn_nuclear_warhead:       'https://commons.wikimedia.org/wiki/Special:FilePath/W88_nuclear_warhead.jpg',
+  // Infraestrutura — Energia
+  civ_power_plant:           'https://commons.wikimedia.org/wiki/Special:FilePath/Coal_power_plant_Datteln_4.jpg',
+  sup_solar_farm:            'https://commons.wikimedia.org/wiki/Special:FilePath/Aerial_view_of_Gemasolar_thermosolar_plant.jpg',
+  sup_wind_farm:             'https://commons.wikimedia.org/wiki/Special:FilePath/Offshore_wind_farm.jpg',
+  sup_hydro_dam:             'https://commons.wikimedia.org/wiki/Special:FilePath/Three_Gorges_Dam.jpg',
+  sup_nuclear_plant:         'https://commons.wikimedia.org/wiki/Special:FilePath/Nuclear_Power_Plant_Cattenom.jpg',
+  // Aeroportos / Portos
+  civ_airport:               'https://commons.wikimedia.org/wiki/Special:FilePath/Denver_International_Airport_crop.jpg',
+  civ_seaport:               'https://commons.wikimedia.org/wiki/Special:FilePath/Port_of_Singapore.jpg',
+  // Pesquisa
+  sup_research_lab:          'https://commons.wikimedia.org/wiki/Special:FilePath/GenericLab.jpg',
+  civ_data_center:           'https://commons.wikimedia.org/wiki/Special:FilePath/Server_farm.jpg',
+  civ_university:            'https://commons.wikimedia.org/wiki/Special:FilePath/YaleCampus.jpg',
+  // Comunicações
+  civ_telecom_tower:         'https://commons.wikimedia.org/wiki/Special:FilePath/Cell_phone_tower.jpg',
+  sup_sat_uplink:            'https://commons.wikimedia.org/wiki/Special:FilePath/Satellite_ground_station.jpg',
+  sup_sigint_station:        'https://commons.wikimedia.org/wiki/Special:FilePath/Menwith_hill_radomes.jpg',
+};
+
 // ── Sprite helper: retorna <img> ou div texto ──────────────
 function _unitImgHtml(unitType, size) {
   size = size || 40;
@@ -564,8 +665,19 @@ function uiOpenResearchDetail(catKey, lineKey, levelIdx) {
   const cell = getResearchCellState(state, catKey, lineKey, levelIdx);
   const modal = document.getElementById('research-detail-modal');
   const photo = document.getElementById('research-detail-photo');
-  const url = (typeof getSpriteDataUrl === 'function') ? getSpriteDataUrl(lvl.sheet, lvl.sprite, 256) : null;
-  if (url) { photo.src = url; photo.style.display = 'block'; } else { photo.style.display = 'none'; }
+  const realUrl = RESEARCH_REAL_PHOTOS[lvl.sprite];
+  if (realUrl) {
+    photo.src = realUrl;
+    photo.style.display = 'block';
+    photo.onerror = function() {
+      const spriteUrl = (typeof getSpriteDataUrl === 'function') ? getSpriteDataUrl(lvl.sheet, lvl.sprite, 256) : null;
+      if (spriteUrl) { photo.src = spriteUrl; } else { photo.style.display = 'none'; }
+      photo.onerror = null;
+    };
+  } else {
+    const spriteUrl = (typeof getSpriteDataUrl === 'function') ? getSpriteDataUrl(lvl.sheet, lvl.sprite, 256) : null;
+    if (spriteUrl) { photo.src = spriteUrl; photo.style.display = 'block'; } else { photo.style.display = 'none'; }
+  }
   document.getElementById('research-detail-name').textContent = lvl.name;
   document.getElementById('research-detail-meta').textContent =
     `${RESEARCH_TREE[catKey].label} — ${RESEARCH_TREE[catKey].lines[lineKey].label} — Nível ${levelIdx+1}`;

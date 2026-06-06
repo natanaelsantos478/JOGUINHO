@@ -237,9 +237,11 @@
     #recruit-inner {
       background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
       padding: 24px; width: 420px; max-width: 95vw;
+      max-height: 85vh; display: flex; flex-direction: column;
     }
-    #recruit-inner h3 { font-family: 'Cinzel', serif; color: var(--gold); margin-bottom: 16px; letter-spacing: 2px; }
-    .recruit-close { margin-top: 14px; }
+    #recruit-inner h3 { font-family: 'Cinzel', serif; color: var(--gold); margin-bottom: 16px; letter-spacing: 2px; flex-shrink: 0; }
+    #recruit-list { overflow-y: auto; flex: 1; min-height: 0; }
+    .recruit-close { margin-top: 14px; flex-shrink: 0; }
 
     /* ─── BUILD MODAL ─── */
     #build-modal {
