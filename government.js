@@ -162,6 +162,28 @@ function processTurn(state) {
   state.game_log.unshift(`[Turno ${state.turn}] Renda: +${income} MON, Despesas: -${expenses} MON`);
   events.forEach(e => state.game_log.unshift(e));
 
+  // Execute pending unit movements
+  (state.units || []).forEach(u => {
+    if (u.pendingLat != null) {
+      const result = moveUnit(u, u.pendingLat, u.pendingLng);
+      if (result.ok) {
+        u.lat = u.pendingLat;
+        u.lng = u.pendingLng;
+      }
+      delete u.pendingLat;
+      delete u.pendingLng;
+    }
+  });
+
+  // Cheat mode
+  if (state._cheatMode) {
+    state.resources.money    = 999999;
+    state.resources.oil      = 9999;
+    state.resources.food     = 9999;
+    state.resources.energy   = 9999;
+    state.resources.manpower = 9999;
+  }
+
   state.turn++;
   return events;
 }

@@ -385,6 +385,14 @@
     }
     #world-name-input:focus { outline: none; border-color: var(--gold-dim); }
 
+    /* ─── PENDING MOVE ROUTE ─── */
+    @keyframes routeMarch {
+      to { stroke-dashoffset: -26; }
+    }
+    .pending-route-line {
+      animation: routeMarch 0.45s linear infinite;
+    }
+
     /* ─── RESPONSIVE ─── */
     @media (max-width: 767px) {
       :root { --panel-w: 0px; }

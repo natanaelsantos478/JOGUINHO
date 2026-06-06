@@ -18,6 +18,7 @@ let _permProvincesLayer = null; // camada permanente visível no zoom
 const _renderedPermProvinces = new Set();
 let _provinceUpdateTimer = null;
 const PROVINCE_ZOOM_THRESHOLD = 4;
+const _pendingRoutes = []; // { lines, arrowMarker, unitId }
 
 // ── Initialise main game map ───────────────────────────────
 async function initMap(savedView) {
@@ -393,18 +394,12 @@ function renderUnits(state) {
       });
       marker.on('dragend', (e) => {
         const { lat, lng } = e.target.getLatLng();
-        const result = moveUnit(unit, lat, lng);
-        if (result.ok) {
-          unit.lat = lat;
-          unit.lng = lng;
-          saveGame(window.GS);
-          renderUnits(window.GS);
-          renderPanelForTab('military');
-          notify(`${unit.name} reposicionada`, 'info');
-        } else {
-          e.target.setLatLng(pos); // snap back
-          notify(result.reason, 'error');
-        }
+        e.target.setLatLng(pos); // snap marker back — move is pending
+        unit.pendingLat = lat;
+        unit.pendingLng = lng;
+        drawAllPendingRoutes();
+        renderPanelForTab('military');
+        notify(`${unit.name} — movimento agendado para fim de turno`, 'info');
       });
     }
 
@@ -416,6 +411,7 @@ function renderUnits(state) {
     marker.addTo(_unitsLayer);
     unit._marker = marker;
   });
+  drawAllPendingRoutes();
 }
 
 // Groups units within 0.1° of each other and spreads their visual markers
@@ -500,19 +496,71 @@ function _handleMapClickForMove(lat, lng) {
   const unit = (window.GS.units || []).find(u => u.id === window._selectedUnitId);
   if (!unit) { window._selectedUnitId = null; return; }
 
-  const result = moveUnit(unit, lat, lng);
-  if (result.ok) {
-    clearRouteLines();
-    animateUnitMove(unit, lat, lng, () => {
-      renderUnits(window.GS);
-      renderPanelForTab('military');
-      saveGame(window.GS);
-    });
-    notify(`${unit.name} em movimento`, 'info');
-  } else {
-    notify(result.reason, 'error');
-  }
+  unit.pendingLat = lat;
+  unit.pendingLng = lng;
+
+  // remove old pending route for this unit then redraw all
+  drawAllPendingRoutes();
+  notify(`${unit.name} — movimento agendado para fim de turno`, 'info');
   window._selectedUnitId = null;
+  renderPanelForTab('military');
+}
+
+// ── Pending routes ─────────────────────────────────────────
+function clearPendingRoutes() {
+  _pendingRoutes.forEach(r => {
+    r.lines.forEach(l => _map && _map.removeLayer(l));
+    if (r.arrowMarker) _map && _map.removeLayer(r.arrowMarker);
+  });
+  _pendingRoutes.length = 0;
+}
+
+function _bezierPoints(lat1, lng1, lat2, lng2, segments) {
+  const midLat = (lat1 + lat2) / 2;
+  const midLng = (lng1 + lng2) / 2;
+  const dLat = lat2 - lat1, dLng = lng2 - lng1;
+  const dist = Math.sqrt(dLat * dLat + dLng * dLng);
+  if (dist < 0.001) return [[lat1, lng1], [lat2, lng2]];
+  const offset = dist * 0.35;
+  const cLat = midLat - (dLng / dist) * offset;
+  const cLng = midLng + (dLat / dist) * offset;
+  const pts = [];
+  for (let i = 0; i <= segments; i++) {
+    const t = i / segments, mt = 1 - t;
+    pts.push([mt*mt*lat1 + 2*mt*t*cLat + t*t*lat2, mt*mt*lng1 + 2*mt*t*cLng + t*t*lng2]);
+  }
+  return pts;
+}
+
+function drawPendingRoute(unit) {
+  if (!_map || unit.pendingLat == null) return;
+  const pts = _bezierPoints(unit.lat, unit.lng, unit.pendingLat, unit.pendingLng, 20);
+  const line = L.polyline(pts, {
+    color: '#e02030', weight: 2.5, dashArray: '8 5', opacity: 0.92,
+    className: 'pending-route-line',
+  }).addTo(_map);
+
+  // Arrowhead — compute angle from last two points
+  const n = pts.length;
+  const dy = pts[n-1][0] - pts[n-2][0];
+  const dx = pts[n-1][1] - pts[n-2][1];
+  const angle = Math.atan2(dx, dy) * (180 / Math.PI);
+  const arrowIcon = L.divIcon({
+    className: '',
+    html: `<div style="width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-bottom:14px solid #e02030;transform:rotate(${angle}deg);transform-origin:center 10px;opacity:0.92;filter:drop-shadow(0 0 4px rgba(224,32,48,0.7));"></div>`,
+    iconSize: [12, 14],
+    iconAnchor: [6, 7],
+  });
+  const arrowMarker = L.marker([unit.pendingLat, unit.pendingLng], { icon: arrowIcon, interactive: false, zIndexOffset: -100 }).addTo(_map);
+  _pendingRoutes.push({ lines: [line], arrowMarker, unitId: unit.id });
+}
+
+function drawAllPendingRoutes() {
+  clearPendingRoutes();
+  if (!window.GS) return;
+  (window.GS.units || [])
+    .filter(u => u.country === window.GS.player_country && u.pendingLat != null)
+    .forEach(drawPendingRoute);
 }
 
 // ── Route animation ────────────────────────────────────────

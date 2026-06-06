@@ -260,61 +260,54 @@ function renderMilitaryPanel(state) {
 
 // ── BUILD PANEL ────────────────────────────────────────────
 function renderBuildPanel(state) {
-  const inProgress = (state.structures || []).filter(s => !s.complete);
-  const complete   = (state.structures || []).filter(s => s.complete);
+  const cities = window.GS && window.GS.cities
+    ? Object.values(window.GS.cities).filter(cs => cs.country === state.player_country)
+    : [];
 
-  const cats = [
-    { label: 'MILITARES', keys: ['mil_barracks','mil_airbase','mil_naval_base','mil_radar_station','mil_missile_silo','mil_nuclear_bunker'] },
-    { label: 'SUPORTE',   keys: ['sup_fob_supply','sup_logistics_hub','mil_field_hospital'] },
-    { label: 'CIVIS',     keys: ['civ_hospital','civ_power_plant','civ_seaport','civ_airport'] },
-  ];
+  if (cities.length === 0) {
+    return `
+      <div class="panel-section">
+        <div class="panel-title">SUAS CIDADES</div>
+        <p style="color:var(--muted);font-size:0.82rem;margin-top:8px">Clique em uma cidade no mapa para gerenciar construções.</p>
+      </div>
+    `;
+  }
 
-  const buildButtons = cats.map(cat => `
-    <div class="panel-title" style="margin-top:12px">${cat.label}</div>
-    ${cat.keys.map(key => {
-      const def = STRUCTURE_DEFS[key];
-      const canAfford = state.resources.money >= def.cost;
-      return `<button class="btn-primary" ${canAfford ? '' : 'disabled'} onclick="uiStartBuild('${key}')" style="text-align:left;font-size:0.75rem;padding:6px 10px;margin:2px 0">
-        ${def.label} <span style="color:var(--muted);float:right">${def.cost} MON / ${def.turns}t</span>
-      </button>`;
-    }).join('')}
-  `).join('');
+  const CITY_LEVEL_META_LOCAL = (typeof CITY_LEVEL_META !== 'undefined') ? CITY_LEVEL_META : {};
+
+  const cityCards = cities.map(cs => {
+    const meta = CITY_LEVEL_META_LOCAL[cs.level] || {};
+    const levelName = meta.name || `Nivel ${cs.level}`;
+    const slots     = (typeof getCitySlots  === 'function') ? getCitySlots(cs)  : '?';
+    const usedSlots = (typeof getUsedSlots  === 'function') ? getUsedSlots(cs)  : '?';
+    const structCount = Object.keys(cs.structures || {}).length;
+    const starsFull  = '★'.repeat(cs.level || 0);
+    const starsEmpty = '☆'.repeat(Math.max(0, 4 - (cs.level || 0)));
+    return `
+      <div class="structure-card" style="margin-bottom:10px;">
+        <div style="font-family:'Cinzel',serif;font-size:0.9rem;color:var(--gold);margin-bottom:4px;">${cs.name}</div>
+        <div style="font-size:0.78rem;color:var(--gold);margin-bottom:4px;">${starsFull}${starsEmpty} <span style="color:var(--muted)">${levelName}</span></div>
+        <div style="font-size:0.75rem;color:var(--muted);margin-bottom:6px;">Slots: ${usedSlots}/${slots} — Estruturas: ${structCount}</div>
+        <button class="btn-primary btn-success" style="padding:5px 10px;font-size:0.72rem;" onclick="uiSelectCity('${cs.name.replace(/'/g, "\\'")}')">GERENCIAR</button>
+      </div>
+    `;
+  }).join('');
 
   return `
     <div class="panel-section">
-      <div class="panel-title">CONSTRUIR</div>
-      <p style="color:var(--muted);font-size:0.78rem;margin-bottom:8px">Clique para posicionar no mapa</p>
-      ${buildButtons}
+      <div class="panel-title">SUAS CIDADES (${cities.length})</div>
+      ${cityCards}
     </div>
-
-    ${inProgress.length > 0 ? `
-    <div class="panel-section">
-      <div class="panel-title">EM ANDAMENTO (${inProgress.length})</div>
-      ${inProgress.map(s => `
-        <div class="structure-card">
-          <div class="structure-header">
-            <span class="structure-name">${s.label}</span>
-            <span class="structure-status">${s.turnsLeft} turno${s.turnsLeft > 1 ? 's' : ''}</span>
-          </div>
-        </div>
-      `).join('')}
-    </div>
-    ` : ''}
-
-    ${complete.length > 0 ? `
-    <div class="panel-section">
-      <div class="panel-title">CONCLUIDAS (${complete.length})</div>
-      ${complete.map(s => `
-        <div class="structure-card">
-          <div class="structure-header">
-            <span class="structure-name">${s.label}</span>
-            <span class="structure-status" style="color:var(--green)">OK</span>
-          </div>
-        </div>
-      `).join('')}
-    </div>
-    ` : ''}
   `;
+}
+
+function uiSelectCity(cityName) {
+  if (!window.GS || !window.GS.cities || !window.GS.cities[cityName]) return;
+  const cs = window.GS.cities[cityName];
+  window._selectedCity     = cs;
+  window._selectedCountry  = cs.country;
+  window._selectedProvince = null;
+  switchTab('info');
 }
 
 // ── GOVERNMENT PANEL ───────────────────────────────────────
@@ -362,7 +355,14 @@ function renderGovPanel(state) {
       ${ministryCards}
     </div>
     <div class="panel-section">
-      <button class="btn-primary" onclick="goToMainMenu()" style="margin-top:8px">MENU PRINCIPAL</button>
+      <div class="panel-title">MODO TESTE</div>
+      <button class="btn-primary${(state._cheatMode ? ' btn-success' : '')}" onclick="uiToggleCheat()">
+        RECURSOS INFINITOS: ${state._cheatMode ? 'ATIVO ✓' : 'OFF'}
+      </button>
+      <button class="btn-primary" onclick="uiGiveResources()" style="margin-top:2px">RECURSOS AGORA</button>
+    </div>
+    <div class="panel-section">
+      <button class="btn-primary" onclick="goToMainMenu()" style="margin-top:2px">MENU PRINCIPAL</button>
       <button class="btn-primary btn-danger" onclick="resetGame()" style="margin-top:4px">NOVA CAMPANHA</button>
     </div>
   `;
@@ -658,4 +658,24 @@ function uiBuildCityStructure(cityName, structureType) {
   } else {
     notify(r.reason, 'error');
   }
+}
+
+function uiToggleCheat() {
+  if (!window.GS) return;
+  window.GS._cheatMode = !window.GS._cheatMode;
+  if (window.GS._cheatMode) uiGiveResources();
+  renderPanelForTab('gov');
+  notify(`Recursos infinitos: ${window.GS._cheatMode ? 'ATIVO' : 'OFF'}`, 'info');
+}
+
+function uiGiveResources() {
+  if (!window.GS) return;
+  const r = window.GS.resources;
+  r.money    = 999999;
+  r.oil      = 9999;
+  r.food     = 9999;
+  r.energy   = 9999;
+  r.manpower = 9999;
+  updateHeader(window.GS);
+  notify('Recursos máximos concedidos!', 'info');
 }
