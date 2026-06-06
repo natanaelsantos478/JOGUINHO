@@ -283,6 +283,11 @@ function getAvailableBuilds(cityState) {
     // slot check: new builds need a free slot; upgrades don't
     if (curTier === 0 && !hasSlot && def.usesSlot !== false) continue;
 
+    // infra research gate for airport/seaport tiers
+    if ((type === 'airport' || type === 'seaport') && typeof getMaxStructureTierFromResearch === 'function') {
+      if (getMaxStructureTierFromResearch(window.GS, type) < nextTier) continue;
+    }
+
     const cost      = def.costsPerTier[nextTier - 1] || 9999;
     const canAfford = !!(window.GS && (window.GS.resources.money || 0) >= cost);
     res.push({ type, label: def.label, curTier, nextTier, cost, canAfford });

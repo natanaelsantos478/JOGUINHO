@@ -5,6 +5,7 @@
 let _activeTab = 'info';
 let _selectedCountryForModal = null;
 let _notifTimer = null;
+let _activeResearchCat = 'aviacao';
 
 const UNIT_REAL_PHOTOS = {
   infantry:        'https://commons.wikimedia.org/wiki/Special:FilePath/Soldiers_of_the_3rd_U.S._Infantry_Regiment.jpg',
@@ -91,6 +92,7 @@ function renderPanelForTab(tab) {
   switch (tab) {
     case 'info':     el.innerHTML = renderInfoPanel(state);     break;
     case 'military': el.innerHTML = renderMilitaryPanel(state); break;
+    case 'research': el.innerHTML = renderResearchPanel(state); break;
     case 'build':    el.innerHTML = renderBuildPanel(state);    break;
     case 'gov':      el.innerHTML = renderGovPanel(state);      break;
     case 'diplo':    el.innerHTML = renderDiploPanel(state);    break;
@@ -506,37 +508,186 @@ function renderLogPanel(state) {
 
 function attachPanelEvents(tab, state) {}
 
+// ── Research panel ─────────────────────────────────────────
+function uiSetResearchCat(catKey) { _activeResearchCat = catKey; renderPanelForTab('research'); }
+
+function renderResearchPanel(state) {
+  if (!state.research) state.research = initResearchState();
+  const cats = Object.entries(RESEARCH_TREE);
+
+  // active summary
+  const activeSummary = Object.entries(state.research.active).map(([catKey, a]) => {
+    const lvl = RESEARCH_TREE[catKey].lines[a.lineKey].levels[a.levelIdx];
+    return `<div class="panel-row"><span class="panel-label">${RESEARCH_TREE[catKey].label}</span><span class="panel-value gold">${lvl.name} — ${a.turnsLeft}t</span></div>`;
+  }).join('');
+
+  const catTabs = cats.map(([k, c]) =>
+    `<button class="rsch-cat-btn${k === _activeResearchCat ? ' active' : ''}" onclick="uiSetResearchCat('${k}')">${c.label}</button>`
+  ).join('');
+
+  const cat = RESEARCH_TREE[_activeResearchCat];
+  const linesHtml = Object.entries(cat.lines).map(([lineKey, line]) => {
+    const cells = line.levels.map((lvl, idx) => {
+      const cell = getResearchCellState(state, _activeResearchCat, lineKey, idx);
+      const url = (typeof getSpriteDataUrl === 'function') ? getSpriteDataUrl(lvl.sheet, lvl.sprite, 64) : null;
+      const img = url
+        ? `<img src="${url}" />`
+        : `<div style="width:100%;height:42px;border-radius:3px;background:#1a2a10;display:flex;align-items:center;justify-content:center;color:#8aaa70;font-size:0.6rem;">${lvl.name.slice(0,3)}</div>`;
+      let badge = '', meta = '';
+      if (cell.status === 'completed') { badge = `<span class="rsch-cell-badge done">✓</span>`; meta = 'Concluído'; }
+      else if (cell.status === 'active') { badge = `<span class="rsch-cell-badge prog">⏳</span>`; meta = `${cell.turnsLeft}t restantes`; }
+      else { meta = `$${getResearchCost(state, _activeResearchCat, lineKey, idx)} / ${getResearchTurns(state, _activeResearchCat, lineKey, idx)}t`; }
+      return `<div class="rsch-cell ${cell.status}" onclick="uiOpenResearchDetail('${_activeResearchCat}','${lineKey}',${idx})">
+        ${badge}
+        <div class="rsch-cell-col">Nv${idx+1}</div>
+        ${img}
+        <div class="rsch-cell-name">${lvl.name}</div>
+        <div class="rsch-cell-meta">${meta}</div>
+      </div>`;
+    }).join('');
+    return `<div class="rsch-line"><div class="rsch-line-label">${line.label}</div><div class="rsch-row">${cells}</div></div>`;
+  }).join('');
+
+  return `
+    ${activeSummary ? `<div class="panel-section"><div class="panel-title">EM PESQUISA</div>${activeSummary}</div>` : ''}
+    <div class="panel-section">
+      <div class="panel-title">ÁRVORE DE PESQUISA</div>
+      <div class="rsch-cat-tabs">${catTabs}</div>
+      ${linesHtml}
+    </div>
+  `;
+}
+
+function uiOpenResearchDetail(catKey, lineKey, levelIdx) {
+  const state = window.GS; if (!state) return;
+  const lvl = RESEARCH_TREE[catKey].lines[lineKey].levels[levelIdx];
+  const cell = getResearchCellState(state, catKey, lineKey, levelIdx);
+  const modal = document.getElementById('research-detail-modal');
+  const photo = document.getElementById('research-detail-photo');
+  const url = (typeof getSpriteDataUrl === 'function') ? getSpriteDataUrl(lvl.sheet, lvl.sprite, 256) : null;
+  if (url) { photo.src = url; photo.style.display = 'block'; } else { photo.style.display = 'none'; }
+  document.getElementById('research-detail-name').textContent = lvl.name;
+  document.getElementById('research-detail-meta').textContent =
+    `${RESEARCH_TREE[catKey].label} — ${RESEARCH_TREE[catKey].lines[lineKey].label} — Nível ${levelIdx+1}`;
+  document.getElementById('research-detail-desc').textContent = lvl.desc || '';
+
+  // stats (if unit)
+  let statsHtml = '';
+  if (lvl.stats) {
+    const s = lvl.stats;
+    statsHtml = `
+      <div class="detail-stat-row"><span class="detail-stat-label">Ataque</span><span class="detail-stat-value">${s.atk}</span></div>
+      <div class="detail-stat-row"><span class="detail-stat-label">Defesa</span><span class="detail-stat-value">${s.def}</span></div>
+      <div class="detail-stat-row"><span class="detail-stat-label">Velocidade</span><span class="detail-stat-value">${s.speed} km/h</span></div>
+      <div class="detail-stat-row"><span class="detail-stat-label">Custo recrutamento</span><span class="detail-stat-value">$${s.cost} / ${s.manpower} MAN</span></div>
+      ${lvl.reqStructure ? `<div class="detail-stat-row"><span class="detail-stat-label">Requer estrutura</span><span class="detail-stat-value">${lvl.reqStructure.type} T${lvl.reqStructure.tier}</span></div>` : ''}`;
+  } else if (lvl.effect) {
+    statsHtml = `<div class="detail-stat-row"><span class="detail-stat-label">Efeito</span><span class="detail-stat-value">${lvl.desc}</span></div>`;
+  }
+  document.getElementById('research-detail-stats').innerHTML = statsHtml;
+
+  // action button
+  const actions = document.getElementById('research-detail-actions');
+  if (cell.status === 'available') {
+    const cost = getResearchCost(state, catKey, lineKey, levelIdx);
+    const turns = getResearchTurns(state, catKey, lineKey, levelIdx);
+    const afford = (state.resources.money || 0) >= cost;
+    actions.innerHTML = `<button class="btn-military success" ${afford ? '' : 'disabled'} onclick="uiStartResearch('${catKey}','${lineKey}',${levelIdx})" style="text-align:center;">PESQUISAR — $${cost} / ${turns}t</button>`;
+  } else if (cell.status === 'completed') {
+    actions.innerHTML = `<div style="color:#60c060;text-align:center;font-family:'Cinzel',serif;font-size:0.8rem;">✓ PESQUISA CONCLUÍDA</div>`;
+  } else if (cell.status === 'active') {
+    actions.innerHTML = `<div style="color:#c0a030;text-align:center;font-family:'Cinzel',serif;font-size:0.8rem;">⏳ EM ANDAMENTO — ${cell.turnsLeft} turnos</div>`;
+  } else {
+    actions.innerHTML = `<div style="color:#c06060;text-align:center;font-size:0.8rem;">${cell.reason || 'Indisponível'}</div>`;
+  }
+  modal.classList.add('visible');
+}
+
+function closeResearchDetail() { document.getElementById('research-detail-modal').classList.remove('visible'); }
+
+function uiStartResearch(catKey, lineKey, levelIdx) {
+  const r = startResearch(window.GS, catKey, lineKey, levelIdx);
+  if (r.ok) {
+    notify(`Pesquisa iniciada: ${r.label} (${r.turns} turnos)`, 'info');
+    updateHeader(window.GS);
+    closeResearchDetail();
+    renderPanelForTab('research');
+    saveGame(window.GS);
+  } else {
+    notify(r.reason, 'error');
+  }
+}
+
+function _researchUnitsByDomain(domain) {
+  const out = [];
+  for (const cat of Object.values(RESEARCH_TREE)) {
+    for (const line of Object.values(cat.lines)) {
+      for (const lvl of line.levels) {
+        if (lvl.unitKey && lvl.stats && lvl.stats.domain === domain) out.push(lvl.unitKey);
+      }
+    }
+  }
+  return out;
+}
+
 // ── Recruit modal ──────────────────────────────────────────
 function openRecruitModal() {
   const modal = document.getElementById('recruit-modal');
   const list  = document.getElementById('recruit-list');
   const state = window.GS;
 
+  if (!state.research) state.research = initResearchState();
+
   const cats = [
-    { label: 'TERRESTRE', types: ['infantry','motorized','veh_light','veh_medium','tank_elite','artillery'] },
-    { label: 'AEREO',     types: ['air3_drone','air2_fighter','air2_helicopter','air1_stealth','air_transport'] },
-    { label: 'NAVAL',     types: ['nav3_patrol','nav2_frigate','nav1_destroyer','nav1_carrier'] },
+    { label: 'TERRESTRE', types: _researchUnitsByDomain('ground') },
+    { label: 'AEREO',     types: _researchUnitsByDomain('air') },
+    { label: 'NAVAL',     types: _researchUnitsByDomain('naval') },
   ];
 
-  list.innerHTML = cats.map(cat => `
-    <div style="margin-bottom:12px">
-      <div style="font-family:'Cinzel',serif;font-size:0.75rem;color:var(--muted);letter-spacing:1px;margin-bottom:6px">${cat.label}</div>
-      ${cat.types.map(type => {
-        const def = UNIT_DEFS[type];
-        const ok  = canRecruit(type, state.resources);
-        return `
-          <div class="recruit-item${ok ? '' : ' disabled-item'}" onclick="${ok ? `uiRecruit('${type}')` : ''}">
-            ${_unitImgHtml(type, 40)}
-            <div class="recruit-item-info" style="margin-left:10px;flex:1;">
-              <div style="font-size:0.85rem">${def.label} <span style="font-size:0.7rem;color:var(--muted)">(Tier ${def.tier})</span></div>
-              <div style="font-size:0.72rem;color:var(--muted)">ATQ:${def.atk} DEF:${def.def} VEL:${def.speed}km/h</div>
-            </div>
-            <div class="recruit-item-cost">${ok ? '' : 'X '}<span>${def.cost} MON</span> / ${def.manpower} MAN</div>
+  list.innerHTML = cats.map(cat => {
+    if (!cat.types.length) return '';
+    const rows = cat.types.map(type => {
+      const def = UNIT_DEFS[type];
+      if (!def) return '';
+      const gate = (typeof getUnitRecruitGate === 'function')
+        ? getUnitRecruitGate(state, type)
+        : { researched: true, structure: true, ok: true, reqStructure: null };
+
+      // Not yet researched → compact locked row
+      if (!gate.researched) {
+        return `<div class="recruit-item disabled-item" style="cursor:not-allowed;">
+          ${_unitImgHtml(type, 56)}
+          <div class="recruit-item-info" style="margin-left:10px;flex:1;">
+            <div style="font-size:0.85rem">🔒 ${def.label}</div>
+            <div style="font-size:0.72rem;color:var(--muted)">Pesquise primeiro</div>
           </div>
-        `;
-      }).join('')}
-    </div>
-  `).join('');
+        </div>`;
+      }
+
+      const afford   = canRecruit(type, state.resources);
+      const ok       = gate.ok && afford;
+      let reason = '';
+      if (!gate.structure) {
+        const r = gate.reqStructure;
+        reason = r ? `Requer ${r.type} T${r.tier}` : 'Estrutura necessária';
+      } else if (!afford) {
+        reason = 'Recursos insuficientes';
+      }
+      return `<div class="recruit-item${ok ? '' : ' disabled-item'}" ${ok ? `onclick="uiRecruit('${type}')"` : 'style="cursor:not-allowed;"'}>
+        ${_unitImgHtml(type, 56)}
+        <div class="recruit-item-info" style="margin-left:10px;flex:1;">
+          <div style="font-size:0.85rem">${def.label} <span style="font-size:0.7rem;color:var(--muted)">(Tier ${def.tier})</span></div>
+          <div style="font-size:0.72rem;color:var(--muted)">ATQ:${def.atk} DEF:${def.def} VEL:${def.speed}km/h</div>
+          ${reason ? `<div style="font-size:0.68rem;color:var(--red)">${reason}</div>` : ''}
+        </div>
+        <div class="recruit-item-cost"><span>${def.cost} MON</span> / ${def.manpower} MAN</div>
+      </div>`;
+    }).join('');
+    return `<div style="margin-bottom:12px">
+      <div style="font-family:'Cinzel',serif;font-size:0.75rem;color:var(--muted);letter-spacing:1px;margin-bottom:6px">${cat.label}</div>
+      ${rows}
+    </div>`;
+  }).join('');
 
   modal.classList.add('visible');
 }

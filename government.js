@@ -132,6 +132,9 @@ function processTurn(state) {
   const powerPlants = (state.structures || []).filter(s => s.type === 'civ_power_plant' && s.complete).length;
   state.resources.energy += powerPlants * 30;
 
+  // Research energy bonus
+  if (typeof getResearchEnergyBonus === 'function') state.resources.energy += getResearchEnergyBonus(state);
+
   // Seaports boost
   const seaports = (state.structures || []).filter(s => s.type === 'civ_seaport' && s.complete).length;
   state.resources.money += seaports * 50;
@@ -150,6 +153,9 @@ function processTurn(state) {
 
   // Advance constructions
   progressConstruction(state, events);
+
+  // Research progress
+  if (typeof progressResearch === 'function') progressResearch(state, events);
 
   // Field hospital healing
   const hospitals = (state.structures || []).filter(s => s.type === 'mil_field_hospital' && s.complete);

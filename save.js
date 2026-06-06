@@ -49,6 +49,7 @@ async function _doSave(state) {
       ministries:   state.ministries,
       satisfaction: state.satisfaction,
       structures:   state.structures,
+      research:     state.research || {},
     };
 
     const payload = {
