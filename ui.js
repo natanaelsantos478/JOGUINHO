@@ -818,14 +818,24 @@ function openRecruitModal() {
       } else if (!afford) {
         reason = 'Recursos insuficientes';
       }
-      return `<div class="recruit-item${ok ? '' : ' disabled-item'}" ${ok ? `onclick="uiRecruit('${type}')"` : 'style="cursor:not-allowed;"'}>
+      const safeType = type.replace(/'/g, "\\'");
+      return `<div class="recruit-item${ok ? '' : ' disabled-item'}" style="${ok ? '' : 'cursor:not-allowed;'}">
         ${_unitImgHtml(type, 56)}
         <div class="recruit-item-info" style="margin-left:10px;flex:1;">
           <div style="font-size:0.85rem">${def.label} <span style="font-size:0.7rem;color:var(--muted)">(Tier ${def.tier})</span></div>
           <div style="font-size:0.72rem;color:var(--muted)">ATQ:${def.atk} DEF:${def.def} VEL:${def.speed}km/h</div>
           ${reason ? `<div style="font-size:0.68rem;color:var(--red)">${reason}</div>` : ''}
         </div>
-        <div class="recruit-item-cost"><span>${def.cost} MON</span> / ${def.manpower} MAN</div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex-shrink:0;">
+          <div class="recruit-item-cost"><span>${def.cost} MON</span> / ${def.manpower} MAN</div>
+          ${ok ? `<div style="display:flex;gap:4px;align-items:center;">
+            <input type="number" id="qty-${type}" min="1" max="999" value="1"
+              onclick="event.stopPropagation()"
+              style="width:50px;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:2px 5px;border-radius:3px;font-size:0.8rem;text-align:center;">
+            <button class="btn-military" style="padding:4px 9px;font-size:0.72rem;letter-spacing:0.5px;"
+              onclick="event.stopPropagation();uiRecruit('${safeType}',+document.getElementById('qty-${type}').value||1)">RECRUTAR</button>
+          </div>` : ''}
+        </div>
       </div>`;
     }).join('');
     return `<div style="margin-bottom:12px">
@@ -965,33 +975,52 @@ function uiDisbandUnit(unitId) {
   notify(`${unit.name} dispensado`, 'info');
 }
 
-function uiRecruit(type) {
+function uiRecruit(type, qty) {
   const state = window.GS;
-  if (!canRecruit(type, state.resources)) { notify('Recursos insuficientes', 'error'); return; }
+  qty = Math.max(1, Math.floor(qty) || 1);
+  const def = UNIT_DEFS[type];
+  if (!def) return;
 
-  deductRecruitCost(type, state.resources);
-  const unit = createUnit(type, state.player_country, 0, 0, 1);
+  const totalCost     = def.cost     * qty;
+  const totalManpower = def.manpower * qty;
+  if (state.resources.money < totalCost || state.resources.manpower < totalManpower) {
+    const maxAfford = Math.min(
+      Math.floor(state.resources.money    / def.cost),
+      Math.floor(state.resources.manpower / def.manpower)
+    );
+    notify(`Recursos insuficientes para ${qty}x ${def.label}. Máximo: ${maxAfford}`, 'error');
+    return;
+  }
+
+  state.resources.money    -= totalCost;
+  state.resources.manpower -= totalManpower;
+
+  const units = [];
+  for (let i = 0; i < qty; i++) units.push(createUnit(type, state.player_country, 0, 0, 1));
+
   closeRecruitModal();
   updateHeader(state);
 
+  // Use the first unit as the "anchor" for placement — all others stack at same spot.
   enterPlaceUnitMode(
-    unit,
+    units[0],
     (lat, lng) => {
-      unit.lat = lat;
-      unit.lng = lng;
       if (!state.units) state.units = [];
-      state.units.push(unit);
-      state.game_log.unshift(`[Turno ${state.turn}] Recrutado: ${UNIT_DEFS[unit.type].label} — ${unit.name}`);
+      units.forEach(u => {
+        u.lat = lat;
+        u.lng = lng;
+        state.units.push(u);
+        state.game_log.unshift(`[Turno ${state.turn}] Recrutado: ${def.label} — ${u.name}`);
+      });
       renderUnits(state);
       renderPanelForTab('military');
       saveGame(state);
-      notify(`${unit.name} posicionado`, 'info');
+      notify(qty === 1 ? `${units[0].name} posicionado` : `${qty}x ${def.label} posicionados`, 'info');
       flyTo(lat, lng, 6);
     },
     () => {
-      const def = UNIT_DEFS[unit.type];
-      state.resources.money    += def.cost;
-      state.resources.manpower += def.manpower;
+      state.resources.money    += totalCost;
+      state.resources.manpower += totalManpower;
       updateHeader(state);
       notify('Recrutamento cancelado — recursos reembolsados', 'info');
     },
