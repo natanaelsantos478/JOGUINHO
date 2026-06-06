@@ -36,7 +36,7 @@ function loginCreateWorld() {
   const name = _getPlayerName();
   if (!name) return;
   window._pendingPlayerName = name;
-  document.getElementById('world-name-input').value = `Mundo de ${name}`;
+  document.getElementById('world-name-input').value = `Campanha de ${name}`;
   document.getElementById('create-world-modal').classList.add('visible');
 }
 

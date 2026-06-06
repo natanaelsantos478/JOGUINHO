@@ -318,7 +318,7 @@ function renderInfoPanel(state) {
 
   const provinceSection = province ? `
     <div class="panel-section">
-      <div class="panel-title">PROVINCIA / ESTADO</div>
+      <div class="panel-title">PROVÍNCIA / ESTADO</div>
       <div style="font-family:'Cinzel',serif;font-size:0.95rem;color:var(--gold);margin-bottom:6px;">${province}</div>
       <div style="font-size:0.8rem;color:var(--muted);margin-bottom:8px;">${country}</div>
       ${isPlayer ? `<button class="btn-primary btn-success" onclick="uiRecruitInProvince()">+ RECRUTAR AQUI</button>` : ''}
@@ -329,7 +329,7 @@ function renderInfoPanel(state) {
     ${citySection}
     ${provinceSection}
     <div class="panel-section">
-      <div class="panel-title">INFORMACOES — ${province ? 'PAIS' : 'SELECAO'}</div>
+      <div class="panel-title">RELATÓRIO — ${province ? 'NAÇÃO' : 'SELEÇÃO'}</div>
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
         <img src="${getFlagUrl(base.iso2)}" style="width:40px;height:27px;object-fit:cover;border-radius:3px;border:1px solid var(--border);" onerror="this.style.display='none'" />
         <div>
@@ -337,23 +337,23 @@ function renderInfoPanel(state) {
           <div style="font-size:0.8rem;color:var(--muted)">${rel}</div>
         </div>
       </div>
-      <div class="panel-row"><span class="panel-label">Populacao</span><span class="panel-value">${fmtNum(base.population)}</span></div>
+      <div class="panel-row"><span class="panel-label">População</span><span class="panel-value">${fmtNum(base.population)}</span></div>
       <div class="panel-row"><span class="panel-label">PIB</span><span class="panel-value">$${base.gdp}B</span></div>
       ${isPlayer ? `<div class="panel-row"><span class="panel-label">Satisfacao</span><span class="panel-value ${state.satisfaction < 20 ? 'red' : state.satisfaction > 60 ? 'green' : ''}">${Math.round(state.satisfaction || 50)}%</span></div>` : ''}
     </div>
 
     ${!isPlayer ? `
     <div class="panel-section">
-      <div class="panel-title">ACOES DIPLOMATICAS</div>
+      <div class="panel-title">AÇÕES DIPLOMÁTICAS</div>
       <button class="btn-primary btn-danger" onclick="uiDeclareWar('${country}')">DECLARAR GUERRA</button>
       <button class="btn-primary btn-success" onclick="uiProposePeace('${country}')">PROPOR PAZ</button>
-      <button class="btn-primary" onclick="uiProposeAlliance('${country}')">PROPOR ALIANCA</button>
-      <button class="btn-primary" onclick="uiSetEmbargo('${country}')">EMBARGO ECONOMICO</button>
+      <button class="btn-primary" onclick="uiProposeAlliance('${country}')">PROPOR ALIANÇA</button>
+      <button class="btn-primary" onclick="uiSetEmbargo('${country}')">EMBARGO ECONÔMICO</button>
     </div>
     ` : ''}
 
     <div class="panel-section">
-      <div class="panel-title">CONTROLES</div>
+      <div class="panel-title">COMANDO</div>
       <button class="btn-primary" onclick="flyToCountry('${country}')">IR PARA ${country.toUpperCase()}</button>
     </div>
   `;
@@ -400,8 +400,8 @@ function renderMilitaryPanel(state) {
   return `
     <div class="panel-section">
       <div class="panel-title">SUAS FORÇAS (${playerUnits.length})</div>
-      <button class="btn-military success" onclick="openRecruitModal()">+ RECRUTAR UNIDADE</button>
-      ${playerUnits.length === 0 ? '<p style="color:#5a7a55;font-size:0.82rem;margin-top:8px">Sem unidades. Recrute sua primeira força.</p>' : unitCards}
+      <button class="btn-military success" onclick="openRecruitModal()">+ RECRUTAR TROPAS</button>
+      ${playerUnits.length === 0 ? '<p style="color:#5a7a55;font-size:0.82rem;margin-top:8px">Nenhuma tropa em campo. Convoque seu primeiro exército.</p>' : unitCards}
     </div>
     ${enemyUnits.length > 0 ? `
     <div class="panel-section">
@@ -566,16 +566,16 @@ function renderGovPanel(state) {
 
   return `
     <div class="panel-section">
-      <div class="panel-title">SITUACAO DO GOVERNO</div>
-      <div class="panel-row"><span class="panel-label">Satisfacao Popular</span><span class="panel-value ${satColor}">${sat}%</span></div>
-      <div style="display:flex;align-items:center;gap:8px;margin:4px 0 10px">${satBar}<span style="font-size:0.75rem;color:var(--muted)">${sat < 20 ? 'RISCO DE REVOLUCAO!' : sat < 40 ? 'Baixa' : sat < 70 ? 'Estavel' : 'Alta'}</span></div>
+      <div class="panel-title">ESTADO DA NAÇÃO</div>
+      <div class="panel-row"><span class="panel-label">Satisfação Popular</span><span class="panel-value ${satColor}">${sat}%</span></div>
+      <div style="display:flex;align-items:center;gap:8px;margin:4px 0 10px">${satBar}<span style="font-size:0.75rem;color:var(--muted)">${sat < 20 ? 'RISCO DE REVOLUÇÃO!' : sat < 40 ? 'Baixa' : sat < 70 ? 'Estável' : 'Alta'}</span></div>
       <div class="panel-row"><span class="panel-label">Renda/turno</span><span class="panel-value green">+${income} MON</span></div>
       <div class="panel-row"><span class="panel-label">Despesas/turno</span><span class="panel-value red">-${expenses} MON</span></div>
       <div class="panel-row"><span class="panel-label">Saldo</span><span class="panel-value ${income > expenses ? 'green' : 'red'}">${income > expenses ? '+' : ''}${income - expenses} MON</span></div>
-      <div class="panel-row"><span class="panel-label">Em guerra com</span><span class="panel-value red">${atWarCount} paises</span></div>
+      <div class="panel-row"><span class="panel-label">Em guerra com</span><span class="panel-value red">${atWarCount} nações</span></div>
     </div>
     <div class="panel-section">
-      <div class="panel-title">MINISTERIOS</div>
+      <div class="panel-title">MINISTÉRIOS</div>
       ${ministryCards}
     </div>
     <div class="panel-section">
@@ -598,7 +598,7 @@ function renderDiploPanel(state) {
   const groups = {
     'Em Guerra':  allNames.filter(n => getRelation(state, n) === 'war'),
     'Aliados':    allNames.filter(n => getRelation(state, n) === 'alliance'),
-    'Tregua':     allNames.filter(n => getRelation(state, n) === 'truce'),
+    'Trégua':     allNames.filter(n => getRelation(state, n) === 'truce'),
     'Embargo':    allNames.filter(n => getRelation(state, n) === 'embargo'),
   };
 
@@ -620,12 +620,12 @@ function renderDiploPanel(state) {
 
   return `
     <div class="panel-section">
-      <div class="panel-title">RELACOES DIPLOMATICAS</div>
-      ${sections || '<p style="color:var(--muted);font-size:0.85rem">Nenhuma relacao especial ativa.</p>'}
+      <div class="panel-title">RELAÇÕES DIPLOMÁTICAS</div>
+      ${sections || '<p style="color:var(--muted);font-size:0.85rem">Nenhuma relação especial ativa.</p>'}
     </div>
     <div class="panel-section">
-      <div class="panel-title">ACOES</div>
-      <p style="color:var(--muted);font-size:0.8rem">Clique em um pais no mapa ou na aba INFO para acoes diplomaticas.</p>
+      <div class="panel-title">AÇÕES</div>
+      <p style="color:var(--muted);font-size:0.8rem">Clique em uma nação no mapa ou na aba NAÇÃO para agir diplomaticamente.</p>
     </div>
   `;
 }
@@ -643,7 +643,7 @@ function renderLogPanel(state) {
     return `<div class="${cls}">${e}</div>`;
   }).join('');
 
-  return `<div class="panel-section"><div class="panel-title">REGISTRO DE EVENTOS</div>${html}</div>`;
+  return `<div class="panel-section"><div class="panel-title">CRÔNICAS DE GUERRA</div>${html}</div>`;
 }
 
 function attachPanelEvents(tab, state) {}

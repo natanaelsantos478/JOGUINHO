@@ -577,13 +577,13 @@
   <!-- SIDE PANEL -->
   <div id="side-panel" style="display:none">
     <div id="panel-tabs">
-      <button class="tab-btn active" data-tab="info">INFO</button>
-      <button class="tab-btn" data-tab="military">MILITAR</button>
-      <button class="tab-btn" data-tab="research">PESQUISA</button>
-      <button class="tab-btn" data-tab="build">OBRA</button>
+      <button class="tab-btn active" data-tab="info">NAÇÃO</button>
+      <button class="tab-btn" data-tab="military">TROPAS</button>
+      <button class="tab-btn" data-tab="research">CIÊNCIA</button>
+      <button class="tab-btn" data-tab="build">CIDADES</button>
       <button class="tab-btn" data-tab="gov">GOVERNO</button>
-      <button class="tab-btn" data-tab="diplo">DIPLO</button>
-      <button class="tab-btn" data-tab="log">LOG</button>
+      <button class="tab-btn" data-tab="diplo">PACTOS</button>
+      <button class="tab-btn" data-tab="log">CRÔNICA</button>
     </div>
     <div id="panel-content">
       <p style="color:var(--muted);font-size:0.85rem;text-align:center;margin-top:40px">Clique em um país no mapa</p>
@@ -597,8 +597,8 @@
         <div id="country-select-map"></div>
       </div>
       <div id="country-sidebar">
-        <h2>ESCOLHA SEU PAÍS</h2>
-        <input type="text" id="country-search" placeholder="Buscar país..." />
+        <h2>ESCOLHA SUA NAÇÃO</h2>
+        <input type="text" id="country-search" placeholder="Buscar nação..." />
         <div id="country-list"></div>
         <div id="country-info-panel">
           <p style="color:var(--muted);font-size:0.85rem;text-align:center;margin-top:20px">Selecione um país</p>
@@ -611,7 +611,7 @@
   <!-- RECRUIT MODAL -->
   <div id="recruit-modal">
     <div id="recruit-inner">
-      <h3>RECRUTAR UNIDADE</h3>
+      <h3>RECRUTAR TROPAS</h3>
       <div id="recruit-list"></div>
       <button class="btn-primary recruit-close" onclick="closeRecruitModal()">FECHAR</button>
     </div>
@@ -620,7 +620,7 @@
   <!-- BUILD MODAL -->
   <div id="build-modal">
     <div id="build-inner">
-      <h3>CONSTRUIR ESTRUTURA</h3>
+      <h3>ERGUER CONSTRUÇÃO</h3>
       <div id="build-list"></div>
       <button class="btn-primary recruit-close" onclick="closeBuildModal()">FECHAR</button>
     </div>
@@ -661,30 +661,30 @@
   <!-- LOGIN SCREEN -->
   <div id="login-screen">
     <h1>WORLD CONQUEST</h1>
-    <p>CONQUISTE O MUNDO</p>
+    <p>FORJE SEU IMPÉRIO. DOMINE O MUNDO.</p>
     <input type="text" id="login-name-input" placeholder="Seu nome de comandante" maxlength="30" />
     <div class="login-btn-row">
-      <button class="login-main-btn" id="btn-create-world-login" onclick="loginCreateWorld()">CRIAR MUNDO</button>
-      <button class="login-main-btn" id="btn-browse-worlds" onclick="loginBrowseWorlds()">MUNDOS</button>
+      <button class="login-main-btn" id="btn-create-world-login" onclick="loginCreateWorld()">NOVA CAMPANHA</button>
+      <button class="login-main-btn" id="btn-browse-worlds" onclick="loginBrowseWorlds()">CONTINUAR</button>
     </div>
   </div>
 
   <!-- WORLDS SCREEN -->
   <div id="worlds-screen">
-    <h2>MUNDOS DISPONÍVEIS</h2>
+    <h2>CAMPANHAS</h2>
     <div id="worlds-create-inline">
-      <button class="btn-primary btn-success" onclick="loginCreateWorld()" style="text-align:center;font-size:0.8rem;">+ CRIAR NOVO MUNDO</button>
+      <button class="btn-primary btn-success" onclick="loginCreateWorld()" style="text-align:center;font-size:0.8rem;">+ NOVA CAMPANHA</button>
     </div>
-    <div id="worlds-list"><p class="worlds-empty">Carregando mundos...</p></div>
+    <div id="worlds-list"><p class="worlds-empty">Reunindo os generais...</p></div>
     <button class="btn-primary" id="worlds-back" onclick="showLoginScreen()" style="max-width:200px;text-align:center;">VOLTAR</button>
   </div>
 
   <!-- CREATE WORLD MODAL -->
   <div id="create-world-modal">
     <div id="create-world-inner">
-      <h3>CRIAR NOVO MUNDO</h3>
-      <input type="text" id="world-name-input" placeholder="Nome do mundo..." maxlength="40" />
-      <button class="btn-primary btn-success" onclick="submitCreateWorld()" style="text-align:center;">CRIAR</button>
+      <h3>NOVA CAMPANHA</h3>
+      <input type="text" id="world-name-input" placeholder="Nome da campanha..." maxlength="40" />
+      <button class="btn-primary btn-success" onclick="submitCreateWorld()" style="text-align:center;">INICIAR</button>
       <button class="btn-primary btn-danger" onclick="closeCreateWorldModal()" style="text-align:center;">CANCELAR</button>
     </div>
   </div>
