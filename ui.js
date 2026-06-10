@@ -3,23 +3,21 @@
 // ═══════════════════════════════════════════════════════════
 
 let _activeTab = 'info';
-let _selectedCountryForModal = null;
 let _notifTimer = null;
+let _panelOpen  = false;
 
 // ── Boot UI ────────────────────────────────────────────────
 function showGameUI() {
   document.getElementById('loading-screen').style.display = 'none';
-  document.getElementById('header').style.display = 'flex';
-  document.getElementById('side-panel').style.display = 'flex';
+  document.getElementById('hud-top').style.display = 'flex';
+  document.getElementById('hud-bottom').style.display = 'flex';
   document.getElementById('country-modal').classList.remove('visible');
 
-  // Tab buttons
   document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.addEventListener('click', () => switchTab(btn.dataset.tab));
   });
-
-  // End turn button
   document.getElementById('btn-end-turn').addEventListener('click', doEndTurn);
+  togglePanel(); // open panel by default
 }
 
 function setLoadingMsg(msg) {
@@ -27,23 +25,43 @@ function setLoadingMsg(msg) {
   if (el) el.textContent = msg;
 }
 
+// ── Panel open/close ───────────────────────────────────────
+function togglePanel() {
+  const p = document.getElementById('left-panel');
+  _panelOpen = !_panelOpen;
+  p.classList.toggle('open', _panelOpen);
+  if (_panelOpen && window.GS) renderPanelForTab(_activeTab);
+}
+
+function showPanel() {
+  if (!_panelOpen) togglePanel();
+}
+
 // ── Header ─────────────────────────────────────────────────
 function updateHeader(state) {
+  if (!state) return;
   const base = getCountryBaseData(state.player_country);
-  document.getElementById('header-flag').src = getFlagUrl(base.iso2);
-  document.getElementById('header-country').textContent = state.player_country;
-  document.getElementById('header-turn').textContent = `📅 Turno ${state.turn}`;
-  document.getElementById('res-money').textContent    = fmtNum(state.resources.money);
-  document.getElementById('res-oil').textContent      = fmtNum(state.resources.oil);
-  document.getElementById('res-food').textContent     = fmtNum(state.resources.food);
-  document.getElementById('res-energy').textContent   = fmtNum(state.resources.energy);
-  document.getElementById('res-manpower').textContent = fmtNum(state.resources.manpower);
+  const flagEl = document.getElementById('header-flag');
+  if (flagEl) { flagEl.src = getFlagUrl(base.iso2); flagEl.style.display = ''; }
+  _setTxt('header-country', state.player_country);
+  _setTxt('header-turn',    `TURNO ${state.turn}`);
+  _setTxt('res-money',    fmtNum(state.resources.money));
+  _setTxt('res-oil',      fmtNum(state.resources.oil));
+  _setTxt('res-food',     fmtNum(state.resources.food));
+  _setTxt('res-energy',   fmtNum(state.resources.energy));
+  _setTxt('res-manpower', fmtNum(state.resources.manpower));
+}
+
+function _setTxt(id, val) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = val;
 }
 
 function fmtNum(n) {
-  if (n >= 1000000) return (n/1000000).toFixed(1) + 'M';
-  if (n >= 1000) return (n/1000).toFixed(1) + 'k';
-  return String(Math.round(n));
+  n = Math.round(n);
+  if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
+  if (n >= 1000)    return (n / 1000).toFixed(1) + 'k';
+  return String(n);
 }
 
 // ── Tab switching ──────────────────────────────────────────
@@ -51,6 +69,7 @@ function switchTab(tab) {
   _activeTab = tab;
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
   renderPanelForTab(tab);
+  showPanel();
 }
 
 function renderPanelForTab(tab) {
@@ -58,299 +77,406 @@ function renderPanelForTab(tab) {
   const el = document.getElementById('panel-content');
   if (!el || !window.GS) return;
   const state = window.GS;
-
   switch (tab) {
-    case 'info':     el.innerHTML = renderInfoPanel(state);   break;
+    case 'info':     el.innerHTML = renderInfoPanel(state);     break;
     case 'military': el.innerHTML = renderMilitaryPanel(state); break;
-    case 'build':    el.innerHTML = renderBuildPanel(state);  break;
-    case 'gov':      el.innerHTML = renderGovPanel(state);    break;
-    case 'diplo':    el.innerHTML = renderDiploPanel(state);  break;
-    case 'log':      el.innerHTML = renderLogPanel(state);    break;
+    case 'build':    el.innerHTML = renderBuildPanel(state);    break;
+    case 'gov':      el.innerHTML = renderGovPanel(state);      break;
+    case 'diplo':    el.innerHTML = renderDiploPanel(state);    break;
+    case 'log':      el.innerHTML = renderLogPanel(state);      break;
   }
-  attachPanelEvents(tab, state);
 }
 
 // ── INFO PANEL ─────────────────────────────────────────────
 function renderInfoPanel(state) {
-  const country = window._selectedCountry || state.player_country;
-  const base = getCountryBaseData(country);
-  const rel = country === state.player_country ? '👑 Seu país' : relationLabel(getRelation(state, country));
-  const relColor = country === state.player_country ? 'gold' : '';
+  const country  = window._selectedCountry || state.player_country;
+  const base     = getCountryBaseData(country);
+  const isPlayer = country === state.player_country;
+  const rel      = isPlayer ? null : getRelation(state, country);
+  const relLabel = isPlayer ? 'SEU PAÍS' : relationLabel(rel);
+  const relTag   = rel
+    ? `<span class="diplo-tag diplo-${rel}">${relLabel}</span>`
+    : `<span style="color:var(--gold);font-size:0.68rem">SEU PAÍS</span>`;
+
+  const diploButtons = !isPlayer ? `
+    <div class="panel-section">
+      <div class="panel-title">AÇÕES DIPLOMÁTICAS</div>
+      <button class="btn btn-danger btn-sm" onclick="uiDeclareWar('${country}')">DECLARAR GUERRA</button>
+      <button class="btn btn-success btn-sm" onclick="uiProposePeace('${country}')">PROPOR PAZ</button>
+      <button class="btn btn-sm" onclick="uiProposeAlliance('${country}')">PROPOR ALIANÇA</button>
+      <button class="btn btn-sm" onclick="uiSetEmbargo('${country}')">EMBARGO ECONÔMICO</button>
+    </div>` : '';
+
+  const myStats = isPlayer ? `
+    <div class="panel-row"><span class="panel-label">Satisfação</span>
+      <span class="panel-value ${state.satisfaction < 25 ? 'red' : state.satisfaction > 65 ? 'green' : ''}">${Math.round(state.satisfaction || 50)}%</span>
+    </div>
+    <div class="sat-bar"><div class="sat-fill" style="width:${Math.round(state.satisfaction || 50)}%;background:${(state.satisfaction||50) < 30 ? 'var(--red)' : (state.satisfaction||50) > 65 ? 'var(--green)' : 'var(--orange)'}"></div></div>
+    <div class="panel-row"><span class="panel-label">Em guerra</span><span class="panel-value ${(state.at_war_with||[]).length ? 'red' : ''}">${(state.at_war_with||[]).length} frentes</span></div>
+    <div class="panel-row"><span class="panel-label">Aliados</span><span class="panel-value green">${(state.allies||[]).length}</span></div>` : '';
 
   return `
     <div class="panel-section">
-      <div class="panel-title">INFORMAÇÕES</div>
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
-        <img src="${getFlagUrl(base.iso2)}" style="width:40px;height:27px;object-fit:cover;border-radius:3px;border:1px solid var(--border);" onerror="this.style.display='none'" />
+      <div style="display:flex;align-items:center;gap:9px;margin-bottom:10px;">
+        <img src="${getFlagUrl(base.iso2)}" style="width:36px;height:24px;object-fit:cover;border-radius:2px;border:1px solid var(--border);flex-shrink:0" onerror="this.style.display='none'">
         <div>
-          <div style="font-family:'Cinzel',serif;font-size:0.95rem;color:var(--gold)">${country}</div>
-          <div style="font-size:0.8rem;color:var(--muted)">${rel}</div>
+          <div style="font-family:'Cinzel',serif;font-size:0.88rem;color:var(--gold)">${country}</div>
+          <div style="margin-top:3px">${relTag}</div>
         </div>
       </div>
       <div class="panel-row"><span class="panel-label">População</span><span class="panel-value">${fmtNum(base.population)}</span></div>
-      <div class="panel-row"><span class="panel-label">PIB</span><span class="panel-value">$${base.gdp}B</span></div>
-      <div class="panel-row"><span class="panel-label">Satisfação</span><span class="panel-value ${state.satisfaction < 20 ? 'red' : state.satisfaction > 60 ? 'green' : ''}">${Math.round(state.satisfaction || 50)}%</span></div>
+      <div class="panel-row"><span class="panel-label">PIB</span><span class="panel-value gold">$${base.gdp}B</span></div>
+      ${myStats}
     </div>
-
-    ${country !== state.player_country ? `
+    ${diploButtons}
     <div class="panel-section">
-      <div class="panel-title">AÇÕES DIPLOMÁTICAS</div>
-      <button class="btn-primary btn-danger" onclick="uiDeclareWar('${country}')">⚔️ Declarar Guerra</button>
-      <button class="btn-primary btn-success" onclick="uiProposePeace('${country}')">🕊️ Propor Paz</button>
-      <button class="btn-primary" onclick="uiProposeAlliance('${country}')">🤝 Propor Aliança</button>
-      <button class="btn-primary" onclick="uiSetEmbargo('${country}')">🚫 Embargo Econômico</button>
-    </div>
-    ` : ''}
-
-    <div class="panel-section">
-      <div class="panel-title">CONTROLES</div>
-      <button class="btn-primary" onclick="flyToCountry('${country}')">🗺️ Ir para ${country}</button>
-    </div>
-  `;
+      <button class="btn btn-sm" onclick="flyToCountry('${country}')">IR PARA ${country.toUpperCase()}</button>
+    </div>`;
 }
 
 // ── MILITARY PANEL ─────────────────────────────────────────
 function renderMilitaryPanel(state) {
-  const playerUnits = (state.units || []).filter(u => u.country === state.player_country);
-  const enemyUnits  = (state.units || []).filter(u => u.country !== state.player_country);
+  const mine  = (state.units || []).filter(u => u.country === state.player_country);
+  const enemy = (state.units || []).filter(u => (state.at_war_with || []).includes(u.country));
+  const zoom  = _getZoom();
 
-  const unitCards = playerUnits.map(u => {
-    const def = UNIT_DEFS[u.type];
-    const selected = window._selectedUnitId === u.id; // expose via global if needed
+  const modeHint = zoom < ZOOM_TACTICAL
+    ? `<div style="font-size:0.64rem;color:var(--muted);margin-bottom:7px;padding:4px 6px;background:#0c1220;border-radius:3px;border:1px solid var(--border)">Vista estratégica — unidades agrupadas em formações. Zoom ${ZOOM_TACTICAL}+ para ver individualmente.</div>`
+    : '';
+
+  const unitCards = mine.map(u => {
+    const def  = UNIT_DEFS[u.type] || {};
+    const sel  = window._selectedUnitId === u.id;
+    const hpPct = Math.round(u.hp);
+    const enPct = Math.round(u.energy / u.energyCap * 100);
     return `
-      <div class="unit-card ${selected ? 'selected' : ''}" onclick="uiSelectUnit('${u.id}')">
-        <div class="unit-card-header">
-          <span class="unit-name">${def ? def.emoji : ''} ${u.name}</span>
-          <span class="unit-level">Lv${u.level} ${levelName(u.level)}</span>
-        </div>
-        <div class="unit-bars">
-          <div class="bar-row"><span class="bar-label">❤️</span><div class="bar-track"><div class="bar-fill hp" style="width:${u.hp}%"></div></div><span style="font-size:0.7rem;color:var(--muted)">${Math.round(u.hp)}%</span></div>
-          <div class="bar-row"><span class="bar-label">⚡</span><div class="bar-track"><div class="bar-fill energy" style="width:${u.energy / u.energyCap * 100}%"></div></div><span style="font-size:0.7rem;color:var(--muted)">${Math.round(u.energy)}%</span></div>
-          <div class="bar-row"><span class="bar-label">📈</span><div class="bar-track"><div class="bar-fill xp" style="width:${u.level < 5 ? (u.xp / (XP_THRESHOLDS[u.level] || 1)) * 100 : 100}%"></div></div><span style="font-size:0.7rem;color:var(--muted)">${u.xp}xp</span></div>
-        </div>
-        <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;">
-          <button class="btn-primary" style="flex:1;padding:4px 6px;font-size:0.7rem" onclick="uiSelectUnit('${u.id}');event.stopPropagation()">📍 Mover</button>
-          <button class="btn-primary btn-danger" style="flex:1;padding:4px 6px;font-size:0.7rem" onclick="uiDisbandUnit('${u.id}');event.stopPropagation()">❌ Dispensar</button>
+    <div class="unit-card${sel ? ' selected' : ''}" onclick="openUnitDetail('${u.id}')">
+      <div style="display:flex;gap:8px;align-items:flex-start;">
+        <div style="flex-shrink:0">${_unitImgHtml(u.type, 44)}</div>
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px">
+            <span class="unit-name">${u.name}</span>
+            <span class="unit-level">Lv${u.level}</span>
+          </div>
+          <div class="unit-type-label">${def.label || u.type}</div>
+          <div class="bar-row"><span class="bar-lbl">HP</span><div class="bar-track"><div class="bar-fill hp" style="width:${hpPct}%"></div></div><span style="font-size:0.58rem;color:var(--muted)">${hpPct}%</span></div>
+          <div class="bar-row"><span class="bar-lbl">EN</span><div class="bar-track"><div class="bar-fill energy" style="width:${enPct}%"></div></div><span style="font-size:0.58rem;color:var(--muted)">${enPct}%</span></div>
+          <div style="margin-top:5px;display:flex;gap:4px" onclick="event.stopPropagation()">
+            <button class="btn btn-sm" style="margin:0;flex:1" onclick="uiSelectUnit('${u.id}')">MOVER</button>
+            <button class="btn btn-sm btn-danger" style="margin:0;flex:1" onclick="uiDisbandUnit('${u.id}')">DISPENSAR</button>
+          </div>
         </div>
       </div>
-    `;
+    </div>`;
   }).join('');
+
+  const enemyList = enemy.length ? `
+    <div class="panel-section">
+      <div class="panel-title">FORÇAS INIMIGAS (${enemy.length})</div>
+      ${enemy.slice(0, 5).map(u => {
+        const def = UNIT_DEFS[u.type] || {};
+        return `<div class="unit-card" style="padding:6px 8px;display:flex;gap:7px;align-items:center">
+          ${_unitImgHtml(u.type, 30)}
+          <div>
+            <div class="unit-name" style="font-size:0.65rem">${u.name}</div>
+            <div style="font-size:0.6rem;color:var(--red)">${u.country} · ${def.label}</div>
+          </div>
+        </div>`;
+      }).join('')}
+      ${enemy.length > 5 ? `<div style="font-size:0.66rem;color:var(--muted);text-align:center;padding:4px">+${enemy.length-5} mais...</div>` : ''}
+    </div>` : '';
 
   return `
     <div class="panel-section">
-      <div class="panel-title">SUAS FORÇAS (${playerUnits.length})</div>
-      <button class="btn-primary btn-success" onclick="openRecruitModal()">+ RECRUTAR UNIDADE</button>
-      ${playerUnits.length === 0 ? '<p style="color:var(--muted);font-size:0.82rem;margin-top:8px">Sem unidades. Recrute sua primeira força.</p>' : unitCards}
+      <div class="panel-title">SUAS FORÇAS (${mine.length})</div>
+      ${modeHint}
+      <button class="btn btn-success btn-sm" onclick="openRecruitModal()">+ RECRUTAR UNIDADE</button>
+      ${mine.length === 0 ? '<p style="color:var(--muted);font-size:0.74rem;margin-top:8px">Nenhuma unidade. Recrute suas primeiras forças.</p>' : unitCards}
     </div>
-    ${enemyUnits.length > 0 ? `
-    <div class="panel-section">
-      <div class="panel-title">FORÇAS INIMIGAS VISÍVEIS (${enemyUnits.length})</div>
-      ${enemyUnits.slice(0, 5).map(u => {
-        const def = UNIT_DEFS[u.type];
-        return `<div class="unit-card"><div class="unit-card-header"><span class="unit-name">${def ? def.emoji : '❓'} ${u.name}</span><span class="unit-level" style="color:var(--red)">${u.country}</span></div></div>`;
-      }).join('')}
-    </div>
-    ` : ''}
-  `;
+    ${enemyList}`;
 }
 
-// ── BUILD PANEL ────────────────────────────────────────────
+// ── BUILD PANEL ─────────────────────────────────────────────
 function renderBuildPanel(state) {
   const inProgress = (state.structures || []).filter(s => !s.complete);
-  const complete   = (state.structures || []).filter(s => s.complete);
-
-  const cats = [
-    { label: '🎖️ MILITARES', keys: ['mil_barracks','mil_airbase','mil_naval_base','mil_radar_station','mil_missile_silo','mil_nuclear_bunker'] },
-    { label: '⛺ SUPORTE',   keys: ['sup_fob_supply','sup_logistics_hub','mil_field_hospital'] },
-    { label: '🏙️ CIVIS',    keys: ['civ_hospital','civ_power_plant','civ_seaport','civ_airport'] },
-  ];
-
-  const buildButtons = cats.map(cat => `
-    <div class="panel-title" style="margin-top:12px">${cat.label}</div>
-    ${cat.keys.map(key => {
-      const def = STRUCTURE_DEFS[key];
-      const canAfford = state.resources.money >= def.cost;
-      return `<button class="btn-primary${canAfford ? '' : ''}" ${canAfford ? '' : 'disabled'} onclick="uiStartBuild('${key}')" style="text-align:left;font-size:0.75rem;padding:6px 10px;margin:2px 0">
-        ${def.emoji} ${def.label} <span style="color:var(--muted);float:right">${def.cost}💰 / ${def.turns}t</span>
-      </button>`;
-    }).join('')}
-  `).join('');
-
-  return `
-    <div class="panel-section">
-      <div class="panel-title">CONSTRUIR</div>
-      <p style="color:var(--muted);font-size:0.78rem;margin-bottom:8px">Clique para posicionar no mapa</p>
-      ${buildButtons}
-    </div>
-
-    ${inProgress.length > 0 ? `
-    <div class="panel-section">
-      <div class="panel-title">EM ANDAMENTO (${inProgress.length})</div>
-      ${inProgress.map(s => `
-        <div class="structure-card">
-          <div class="structure-header">
-            <span class="structure-name">${s.emoji} ${s.label}</span>
-            <span class="structure-status">${s.turnsLeft} turno${s.turnsLeft > 1 ? 's' : ''}</span>
-          </div>
-        </div>
-      `).join('')}
-    </div>
-    ` : ''}
-
-    ${complete.length > 0 ? `
-    <div class="panel-section">
-      <div class="panel-title">CONCLUÍDAS (${complete.length})</div>
-      ${complete.map(s => `
-        <div class="structure-card">
-          <div class="structure-header">
-            <span class="structure-name">${s.emoji} ${s.label}</span>
-            <span class="structure-status" style="color:var(--green)">✅</span>
-          </div>
-        </div>
-      `).join('')}
-    </div>
-    ` : ''}
-  `;
-}
-
-// ── GOVERNMENT PANEL ───────────────────────────────────────
-function renderGovPanel(state) {
-  const sat = Math.round(state.satisfaction || 50);
-  const satColor = sat < 20 ? 'red' : sat > 60 ? 'green' : '';
-  const satBar = `<div class="bar-track" style="height:8px;flex:1"><div class="bar-fill ${sat > 60 ? 'hp' : sat < 30 ? '' : 'energy'}" style="width:${sat}%;background:${sat < 30 ? 'var(--red)' : sat < 60 ? '#c8a84b' : 'var(--green)'};height:8px"></div></div>`;
-
-  const ministryCards = Object.entries(MINISTRY_DEFS).map(([key, def]) => {
-    const level = (state.ministries || {})[key] || 1;
-    const cost  = ministryCost(level);
-    const stars = '★'.repeat(level) + '☆'.repeat(5 - level);
-    const canAfford = state.resources.money >= cost && level < 5;
-    return `
-      <div class="ministry-card">
-        <div class="ministry-header">
-          <span class="ministry-name">${def.label}</span>
-          <span class="ministry-level">Nível ${level}</span>
-        </div>
-        <div class="ministry-stars">${stars}</div>
-        <div style="font-size:0.75rem;color:var(--muted);margin:4px 0">${def.effect}</div>
-        <button class="btn-primary" ${canAfford ? '' : 'disabled'} onclick="uiUpgradeMinistry('${key}')" style="padding:4px 8px;font-size:0.72rem;margin-top:4px">
-          ${level < 5 ? `Melhorar (${cost}💰)` : 'Máximo'}
-        </button>
-      </div>
-    `;
-  }).join('');
-
-  const atWarCount = (state.at_war_with || []).length;
-  const income   = incomePerTurn(state.resources, state.ministries || {}, atWarCount);
-  const expenses = expensesPerTurn(state.units || []);
-
-  return `
-    <div class="panel-section">
-      <div class="panel-title">SITUAÇÃO DO GOVERNO</div>
-      <div class="panel-row"><span class="panel-label">Satisfação Popular</span><span class="panel-value ${satColor}">${sat}%</span></div>
-      <div style="display:flex;align-items:center;gap:8px;margin:4px 0 10px">${satBar}<span style="font-size:0.75rem;color:var(--muted)">${sat < 20 ? '⚠️ Risco de revolução!' : sat < 40 ? 'Baixa' : sat < 70 ? 'Estável' : 'Alta'}</span></div>
-      <div class="panel-row"><span class="panel-label">Renda/turno</span><span class="panel-value green">+${income}💰</span></div>
-      <div class="panel-row"><span class="panel-label">Despesas/turno</span><span class="panel-value red">-${expenses}💰</span></div>
-      <div class="panel-row"><span class="panel-label">Saldo</span><span class="panel-value ${income > expenses ? 'green' : 'red'}">${income > expenses ? '+' : ''}${income - expenses}💰</span></div>
-      <div class="panel-row"><span class="panel-label">Em guerra com</span><span class="panel-value red">${atWarCount} países</span></div>
-    </div>
-    <div class="panel-section">
-      <div class="panel-title">MINISTÉRIOS</div>
-      ${ministryCards}
-    </div>
-  `;
-}
-
-// ── DIPLOMACY PANEL ────────────────────────────────────────
-function renderDiploPanel(state) {
-  const allNames = getAllCountryNames().slice(0, 50); // limit for performance
-  const groups = {
-    '⚔️ Em Guerra': allNames.filter(n => getRelation(state, n) === 'war'),
-    '🤝 Aliados':   allNames.filter(n => getRelation(state, n) === 'alliance'),
-    '🕊️ Trégua':   allNames.filter(n => getRelation(state, n) === 'truce'),
-    '🚫 Embargo':   allNames.filter(n => getRelation(state, n) === 'embargo'),
+  const complete   = (state.structures || []).filter(s =>  s.complete);
+  const categories = {
+    MILITAR: ['mil_barracks','mil_airbase','mil_naval_base','mil_radar_station','mil_missile_silo','mil_nuclear_bunker'],
+    SUPORTE: ['sup_fob_supply','sup_logistics_hub','mil_field_hospital'],
+    CIVIL:   ['civ_hospital','civ_power_plant','civ_seaport','civ_airport'],
   };
 
-  const sections = Object.entries(groups).filter(([, list]) => list.length > 0).map(([title, list]) => `
-    <div class="panel-title" style="margin-top:12px">${title}</div>
-    ${list.map(name => {
-      const base = getCountryBaseData(name);
-      return `
-        <div class="diplo-card">
-          <div class="diplo-header">
-            <img class="diplo-flag" src="${getFlagUrl(base.iso2)}" onerror="this.style.display='none'" />
-            <span class="diplo-name">${name}</span>
-          </div>
-          <button class="btn-primary" style="padding:4px 8px;font-size:0.72rem" onclick="window._selectedCountry='${name}';switchTab('info')">Ver detalhes</button>
+  let html = '';
+  if (inProgress.length) {
+    html += `<div class="panel-section"><div class="panel-title">EM CONSTRUÇÃO</div>`;
+    inProgress.forEach(s => {
+      const def = STRUCTURE_DEFS[s.type] || { turns: 1 };
+      const pct = Math.round((1 - s.turnsLeft / def.turns) * 100);
+      html += `<div class="unit-card" style="padding:6px 8px">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span style="font-size:0.74rem">${s.emoji || ''} ${s.label}</span>
+          <span style="font-size:0.66rem;color:var(--orange)">${s.turnsLeft} turnos</span>
         </div>
-      `;
-    }).join('')}
-  `).join('');
+        <div class="bar-row" style="margin-top:3px">
+          <div class="bar-track" style="height:4px"><div class="bar-fill" style="width:${pct}%;background:var(--orange)"></div></div>
+        </div>
+      </div>`;
+    });
+    html += `</div>`;
+  }
 
-  return `
+  Object.entries(categories).forEach(([cat, types]) => {
+    html += `<div class="panel-section"><div class="panel-title">${cat}</div>`;
+    types.forEach(type => {
+      const def = STRUCTURE_DEFS[type];
+      if (!def) return;
+      const owned = (state.structures || []).filter(s => s.type === type).length;
+      const ok    = state.resources.money >= def.cost;
+      html += `<button class="btn btn-sm" ${!ok ? 'disabled' : ''} onclick="uiStartBuild('${type}')">
+        <span style="float:left">${def.emoji || ''} ${def.label}${owned ? ` <span style='color:var(--gold)'>(×${owned})</span>` : ''}</span>
+        <span style="float:right;color:${ok ? 'var(--gold)' : 'var(--red)'}">$${def.cost}</span>
+        <span style="clear:both;display:block;font-size:0.58rem;color:var(--muted);font-family:'Rajdhani',sans-serif">${def.effect} · ${def.turns} turnos</span>
+      </button>`;
+    });
+    html += `</div>`;
+  });
+
+  if (complete.length) {
+    html += `<div class="panel-section"><div class="panel-title">CONCLUÍDAS (${complete.length})</div>`;
+    complete.forEach(s => {
+      html += `<div class="panel-row"><span class="panel-label">${s.emoji || ''} ${s.label}</span><span class="panel-value green" style="font-size:0.6rem">ATIVA</span></div>`;
+    });
+    html += `</div>`;
+  }
+
+  return html || '<p style="color:var(--muted);font-size:0.74rem">Sem construções.</p>';
+}
+
+// ── GOV PANEL ──────────────────────────────────────────────
+function renderGovPanel(state) {
+  const income   = Math.round(incomePerTurn(state.resources, state.ministries, (state.at_war_with||[]).length));
+  const expenses = Math.round(expensesPerTurn(state.units || []));
+  const balance  = income - expenses;
+
+  let html = `
     <div class="panel-section">
-      <div class="panel-title">RELAÇÕES DIPLOMÁTICAS</div>
-      ${sections || '<p style="color:var(--muted);font-size:0.85rem">Nenhuma relação especial ativa. Todos neutros.</p>'}
+      <div class="panel-title">ECONOMIA</div>
+      <div class="panel-row"><span class="panel-label">Renda/turno</span><span class="panel-value green">+${fmtNum(income)}</span></div>
+      <div class="panel-row"><span class="panel-label">Despesas/turno</span><span class="panel-value red">-${fmtNum(expenses)}</span></div>
+      <div class="panel-row"><span class="panel-label">Saldo</span><span class="panel-value ${balance >= 0 ? 'green' : 'red'}">${balance >= 0 ? '+' : ''}${fmtNum(balance)}</span></div>
+      <div class="panel-row"><span class="panel-label">Satisfação</span><span class="panel-value">${Math.round(state.satisfaction || 50)}%</span></div>
     </div>
-    <div class="panel-section">
-      <div class="panel-title">AÇÕES</div>
-      <p style="color:var(--muted);font-size:0.8rem">Clique em um país no mapa ou na aba INFO para ações diplomáticas.</p>
-    </div>
-  `;
+    <div class="panel-section"><div class="panel-title">MINISTÉRIOS</div>`;
+
+  Object.entries(MINISTRY_DEFS).forEach(([key, def]) => {
+    const lvl  = (state.ministries || {})[key] || 1;
+    const cost = ministryCost(lvl);
+    const stars = '★'.repeat(lvl) + '☆'.repeat(Math.max(0, 4 - lvl));
+    const ok    = state.resources.money >= cost && lvl < 4;
+    html += `
+      <div class="ministry-card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
+          <span style="font-size:0.74rem">${def.label}</span>
+          <span class="ministry-stars">${stars}</span>
+        </div>
+        <div style="font-size:0.6rem;color:var(--muted);margin-bottom:5px">${def.effect}</div>
+        <button class="btn btn-sm btn-primary" style="margin:0" ${!ok ? 'disabled' : ''} onclick="uiUpgradeMinistry('${key}')">
+          ${lvl >= 4 ? 'MÁXIMO' : `MELHORAR · $${fmtNum(cost)}`}
+        </button>
+      </div>`;
+  });
+  html += `</div>`;
+  return html;
+}
+
+// ── DIPLO PANEL ────────────────────────────────────────────
+function renderDiploPanel(state) {
+  const groups = { war:[], alliance:[], truce:[], embargo:[] };
+  const allNames = typeof getAllCountryNames === 'function' ? getAllCountryNames() : [];
+
+  allNames.forEach(name => {
+    if (name === state.player_country) return;
+    const rel = getRelation(state, name);
+    if (groups[rel]) groups[rel].push(name);
+  });
+
+  const cfg = [
+    { key:'war',      label:'EM GUERRA' },
+    { key:'alliance', label:'ALIADOS' },
+    { key:'truce',    label:'TRÉGUA' },
+    { key:'embargo',  label:'EMBARGO' },
+  ];
+
+  let html = '';
+  cfg.forEach(({ key, label }) => {
+    if (!groups[key].length) return;
+    html += `<div class="panel-section"><div class="panel-title">${label} (${groups[key].length})</div>`;
+    groups[key].forEach(name => {
+      const base = getCountryBaseData(name);
+      html += `<div class="unit-card" style="padding:6px 8px;display:flex;align-items:center;gap:7px;cursor:pointer" onclick="window._selectedCountry='${name}';switchTab('info')">
+        <img src="${getFlagUrl(base.iso2)}" style="width:20px;height:14px;object-fit:cover;border-radius:2px;border:1px solid var(--border);flex-shrink:0" onerror="this.style.display='none'">
+        <span style="flex:1;font-size:0.74rem">${name}</span>
+        <span class="diplo-tag diplo-${key}" style="font-size:0.55rem">${key.toUpperCase()}</span>
+      </div>`;
+    });
+    html += `</div>`;
+  });
+
+  return html || '<div class="panel-section"><p style="color:var(--muted);font-size:0.74rem">Sem relações diplomáticas ativas.</p></div>';
 }
 
 // ── LOG PANEL ──────────────────────────────────────────────
 function renderLogPanel(state) {
-  const entries = (state.game_log || []).slice(0, 80);
-  if (entries.length === 0) return '<p style="color:var(--muted);font-size:0.85rem;text-align:center;margin-top:20px">Sem eventos registrados.</p>';
-
-  const html = entries.map(e => {
-    let cls = 'log-entry';
-    if (e.includes('⚔️') || e.includes('guerra') || e.includes('DERROTA')) cls += ' war';
-    else if (e.includes('🕊️') || e.includes('paz') || e.includes('aliança')) cls += ' peace';
-    else if (e.includes('[EVENTO]') || e.includes('[CONSTRUÇÃO]')) cls += ' important';
-    return `<div class="${cls}">${e}</div>`;
-  }).join('');
-
-  return `<div class="panel-section"><div class="panel-title">REGISTRO DE EVENTOS</div>${html}</div>`;
+  const log = state.game_log || [];
+  if (!log.length) return '<p style="color:var(--muted);font-size:0.74rem">Nenhum evento registrado.</p>';
+  return `<div class="panel-section">${log.slice(0, 60).map(e => `<div class="log-entry">${e}</div>`).join('')}</div>`;
 }
 
-// ── Panel event bindings ────────────────────────────────────
-function attachPanelEvents(tab, state) {
-  // Events are handled via inline onclick to avoid repeated listener issues
+// ── Unit image helper ──────────────────────────────────────
+function _unitImgHtml(unitType, size) {
+  size = size || 40;
+  const dataUrl = typeof getUnitSpriteDataUrl === 'function' ? getUnitSpriteDataUrl(unitType, size) : null;
+  const map     = typeof UNIT_SPRITE_MAP !== 'undefined' ? UNIT_SPRITE_MAP[unitType] : null;
+  const emoji   = map ? (map.emoji || '?') : '?';
+  if (dataUrl) {
+    return `<img src="${dataUrl}" width="${size}" height="${size}" style="border-radius:50%;border:2px solid var(--border);flex-shrink:0;display:block;">`;
+  }
+  return `<div style="width:${size}px;height:${size}px;border-radius:50%;background:#0c1220;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:${Math.round(size*0.42)}px;flex-shrink:0">${emoji}</div>`;
+}
+
+// ── Formation panel (from map click) ──────────────────────
+function showFormationPanel(fm, state) {
+  switchTab('military');
+  const el = document.getElementById('panel-content');
+  if (!el) return;
+
+  const isSelf  = fm.country === state.player_country;
+  const isWar   = (state.at_war_with || []).includes(fm.country);
+  const borderC = isSelf ? 'var(--gold)' : isWar ? 'var(--red)' : '#4a7aaf';
+  const g = fm.byDomain.ground.length;
+  const a = fm.byDomain.air.length;
+  const n = fm.byDomain.naval.length;
+  const comp = [a?`${a} aéreo`:'', g?`${g} terrestre`:'', n?`${n} naval`:''].filter(Boolean).join(' · ');
+
+  el.innerHTML = `
+    <div class="panel-section">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <div style="width:10px;height:10px;border-radius:50%;background:${borderC};flex-shrink:0"></div>
+        <span style="font-family:'Cinzel',serif;font-size:0.8rem;color:${borderC}">${fm.country}</span>
+      </div>
+      <div class="panel-row"><span class="panel-label">Unidades</span><span class="panel-value">${fm.total}</span></div>
+      <div class="panel-row"><span class="panel-label">Composição</span><span class="panel-value" style="font-size:0.7rem">${comp}</span></div>
+      <div class="panel-row"><span class="panel-label">HP médio</span>
+        <span class="panel-value ${fm.avgHp > 60 ? 'green' : fm.avgHp > 30 ? 'orange' : 'red'}">${Math.round(fm.avgHp)}%</span>
+      </div>
+      ${isSelf ? `<button class="btn btn-primary btn-sm" onclick="flyTo(${fm.lat},${fm.lng},8)">VER INDIVIDUALMENTE →</button>` : ''}
+    </div>
+    <div class="panel-section">
+      <div class="panel-title">UNIDADES (${fm.total})</div>
+      ${fm.units.slice(0, 10).map(u => {
+        const def = UNIT_DEFS[u.type] || {};
+        return `<div style="display:flex;align-items:center;gap:6px;padding:4px 0;border-bottom:1px solid var(--border)">
+          ${_unitImgHtml(u.type, 26)}
+          <div style="flex:1;min-width:0">
+            <div style="font-size:0.68rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${u.name}</div>
+            <div style="font-size:0.58rem;color:var(--muted)">${def.label || u.type}</div>
+          </div>
+          <span style="font-size:0.6rem;color:${u.hp>60?'var(--green)':u.hp>30?'var(--orange)':'var(--red)'}">${Math.round(u.hp)}%</span>
+        </div>`;
+      }).join('')}
+      ${fm.units.length > 10 ? `<div style="font-size:0.64rem;color:var(--muted);text-align:center;padding:5px">+${fm.units.length-10} mais...</div>` : ''}
+    </div>`;
+}
+
+// ── Unit detail modal ──────────────────────────────────────
+function openUnitDetail(unitId) {
+  const state = window.GS;
+  if (!state) return;
+  const unit = (state.units || []).find(u => u.id === unitId);
+  if (!unit) return;
+  const def = UNIT_DEFS[unit.type];
+  if (!def) return;
+
+  _setTxt('unit-detail-title', unit.name);
+
+  const photoEl    = document.getElementById('unit-detail-photo');
+  const fallbackEl = document.getElementById('unit-detail-photo-fallback');
+  const PHOTOS = {
+    infantry:      'https://upload.wikimedia.org/wikipedia/commons/thumb/b/b6/Soldiers_of_3rd_U.S._Infantry_Regiment.jpg/640px-Soldiers_of_3rd_U.S._Infantry_Regiment.jpg',
+    tank_elite:    'https://upload.wikimedia.org/wikipedia/commons/thumb/4/41/M1A2_Abrams_on_patrol.jpg/640px-M1A2_Abrams_on_patrol.jpg',
+    air2_fighter:  'https://upload.wikimedia.org/wikipedia/commons/thumb/4/47/F-16_Fighting_Falcon_in_flight_%282%29.jpg/640px-F-16_Fighting_Falcon_in_flight_%282%29.jpg',
+    air1_stealth:  'https://upload.wikimedia.org/wikipedia/commons/thumb/f/f9/F-22_Raptor_edit1.jpg/640px-F-22_Raptor_edit1.jpg',
+    nav1_destroyer:'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e3/USS_Arleigh_Burke_%28DDG-51%29.jpg/640px-USS_Arleigh_Burke_%28DDG-51%29.jpg',
+    nav1_carrier:  'https://upload.wikimedia.org/wikipedia/commons/thumb/e/ef/USS_Ronald_Reagan_%28CVN-76%29.jpg/640px-USS_Ronald_Reagan_%28CVN-76%29.jpg',
+  };
+
+  const photo = PHOTOS[unit.type];
+  if (photo) {
+    photoEl.src = photo; photoEl.style.display = 'block';
+    fallbackEl.style.display = 'none';
+  } else {
+    photoEl.style.display = 'none';
+    fallbackEl.style.display = 'flex';
+    const map = typeof UNIT_SPRITE_MAP !== 'undefined' ? UNIT_SPRITE_MAP[unit.type] : null;
+    fallbackEl.textContent = map ? (map.emoji || '🪖') : '🪖';
+  }
+
+  const hpPct = Math.round(unit.hp);
+  const enPct = Math.round(unit.energy / unit.energyCap * 100);
+  const isOwnUnit = unit.country === state.player_country;
+
+  document.getElementById('unit-detail-stats').innerHTML = `
+    <div style="font-family:'Cinzel',serif;font-size:0.74rem;color:var(--muted);margin-bottom:8px">${unit.country} · ${def.label} · ${levelName(unit.level)}</div>
+    <div class="bar-row"><span class="bar-lbl">HP</span><div class="bar-track"><div class="bar-fill hp" style="width:${hpPct}%"></div></div><span style="font-size:0.6rem;color:var(--muted)">${hpPct}%</span></div>
+    <div class="bar-row"><span class="bar-lbl">EN</span><div class="bar-track"><div class="bar-fill energy" style="width:${enPct}%"></div></div><span style="font-size:0.6rem;color:var(--muted)">${enPct}%</span></div>
+    <div style="margin:10px 0 8px;border-top:1px solid var(--border);padding-top:8px">
+      <div class="panel-row"><span class="panel-label">Ataque</span><span class="panel-value">${def.atk}</span></div>
+      <div class="panel-row"><span class="panel-label">Defesa</span><span class="panel-value">${def.def}</span></div>
+      <div class="panel-row"><span class="panel-label">Velocidade</span><span class="panel-value">${def.speed} km/h</span></div>
+      <div class="panel-row"><span class="panel-label">Alcance</span><span class="panel-value">${def.range} km</span></div>
+      <div class="panel-row"><span class="panel-label">Domínio</span><span class="panel-value gold">${def.domain}</span></div>
+      <div class="panel-row"><span class="panel-label">Esquadrão</span><span class="panel-value">×${unit.squadSize}</span></div>
+      <div class="panel-row"><span class="panel-label">XP</span><span class="panel-value">${unit.xp}/${XP_THRESHOLDS[unit.level] || '—'}</span></div>
+    </div>
+    ${isOwnUnit ? `
+      <div style="display:flex;gap:6px;margin-top:4px">
+        <button class="btn btn-primary btn-sm" style="margin:0;flex:1" onclick="document.getElementById('unit-detail-modal').classList.remove('visible');uiSelectUnit('${unit.id}')">MOVER</button>
+        <button class="btn btn-danger btn-sm" style="margin:0;flex:1" onclick="document.getElementById('unit-detail-modal').classList.remove('visible');uiDisbandUnit('${unit.id}')">DISPENSAR</button>
+      </div>` : ''}`;
+
+  document.getElementById('unit-detail-modal').classList.add('visible');
 }
 
 // ── Recruit modal ──────────────────────────────────────────
 function openRecruitModal() {
-  const modal = document.getElementById('recruit-modal');
-  const list  = document.getElementById('recruit-list');
   const state = window.GS;
-
-  const cats = [
-    { label: '🪖 TERRESTRE', types: ['infantry','motorized','veh_light','veh_medium','tank_elite','artillery'] },
-    { label: '✈️ AÉREO',    types: ['air3_drone','air2_fighter','air2_helicopter','air1_stealth','air_transport'] },
-    { label: '⚓ NAVAL',    types: ['nav3_patrol','nav2_frigate','nav1_destroyer','nav1_carrier'] },
-  ];
-
-  list.innerHTML = cats.map(cat => `
-    <div style="margin-bottom:12px">
-      <div style="font-family:'Cinzel',serif;font-size:0.75rem;color:var(--muted);letter-spacing:1px;margin-bottom:6px">${cat.label}</div>
-      ${cat.types.map(type => {
-        const def = UNIT_DEFS[type];
-        const ok  = canRecruit(type, state.resources);
-        return `
-          <div class="recruit-item${ok ? '' : ''}" onclick="${ok ? `uiRecruit('${type}')` : ''}">
-            <div class="recruit-item-info">
-              <div>${def.emoji} ${def.label} <span style="font-size:0.7rem;color:var(--muted)">(Tier ${def.tier})</span></div>
-              <div style="font-size:0.75rem;color:var(--muted)">ATK:${def.atk} DEF:${def.def} VEL:${def.speed}km/h</div>
-            </div>
-            <div class="recruit-item-cost">${ok ? '' : '❌ '}<span>${def.cost}💰</span> / ${def.manpower}👥</div>
-          </div>
-        `;
-      }).join('')}
-    </div>
-  `).join('');
-
-  modal.classList.add('visible');
+  if (!state) return;
+  const sections = {
+    'TERRESTRE': ['infantry','motorized','veh_light','veh_medium','tank_elite','artillery'],
+    'AÉREO':     ['air3_drone','air2_fighter','air2_helicopter','air1_stealth','air_transport'],
+    'NAVAL':     ['nav3_patrol','nav2_frigate','nav1_destroyer','nav1_carrier'],
+  };
+  let html = '';
+  Object.entries(sections).forEach(([sec, types]) => {
+    html += `<div class="recruit-section-label">${sec}</div>`;
+    types.forEach(type => {
+      const def = UNIT_DEFS[type];
+      if (!def) return;
+      const ok  = canRecruit(type, state.resources);
+      const map = typeof UNIT_SPRITE_MAP !== 'undefined' ? UNIT_SPRITE_MAP[type] : null;
+      const emoji = map ? (map.emoji || '?') : '?';
+      html += `<div class="recruit-item${ok ? '' : ' disabled'}" onclick="${ok ? `uiRecruit('${type}')` : ''}">
+        <span style="font-size:20px">${emoji}</span>
+        <div class="recruit-item-info">
+          <div class="recruit-item-name">${def.label}</div>
+          <div class="recruit-item-stats">ATK:${def.atk} DEF:${def.def} · ${def.speed}km/h · ${def.domain}</div>
+        </div>
+        <div class="recruit-item-cost">$${def.cost}<small>${def.manpower} MP</small></div>
+      </div>`;
+    });
+  });
+  document.getElementById('recruit-modal-content').innerHTML = html;
+  document.getElementById('recruit-modal').classList.add('visible');
 }
 
 function closeRecruitModal() {
@@ -366,172 +492,156 @@ async function showCountryModal() {
 }
 
 function populateCountryList(query) {
-  const list = document.getElementById('country-list');
-  const names = getAllCountryNames().filter(n => n.toLowerCase().includes(query.toLowerCase()));
-  list.innerHTML = names.slice(0, 100).map(name => {
-    const base = getCountryBaseData(name);
-    const sel  = name === _selectedCountryForModal;
-    return `
-      <div class="country-list-item ${sel ? 'selected' : ''}" onclick="selectCountryByName('${name.replace(/'/g,"\\'")}')">
-        <img class="country-list-flag" src="${getFlagUrl(base.iso2)}" onerror="this.style.display='none'" />
-        <span class="country-list-name">${name}</span>
-      </div>
-    `;
-  }).join('');
+  const names = typeof getAllCountryNames === 'function' ? getAllCountryNames() : [];
+  const q     = (query || '').toLowerCase();
+  const list  = document.getElementById('country-list');
+  if (!list) return;
+  const filtered = q ? names.filter(n => n.toLowerCase().includes(q)) : names;
+  list.innerHTML = filtered.map(n =>
+    `<div class="country-list-item${window._pendingCountry === n ? ' selected' : ''}" onclick="selectCountryByName('${n}')">${n}</div>`
+  ).join('');
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-  const search = document.getElementById('country-search');
-  if (search) search.addEventListener('input', e => populateCountryList(e.target.value));
-
-  const confirmBtn = document.getElementById('btn-confirm-country');
-  if (confirmBtn) confirmBtn.addEventListener('click', () => {
-    if (_selectedCountryForModal) confirmCountrySelection(_selectedCountryForModal);
-  });
-});
+function filterCountryList(q) { populateCountryList(q); }
 
 function selectCountryByName(name) {
-  _selectedCountryForModal = name;
+  if (!name) return;
+  window._pendingCountry = name;
+  document.querySelectorAll('.country-list-item').forEach(el => {
+    el.classList.toggle('selected', el.textContent === name);
+  });
   const base = getCountryBaseData(name);
-
-  document.getElementById('country-info-panel').innerHTML = `
-    <img class="info-flag" src="${getFlagUrl(base.iso2)}" onerror="this.style.display='none'" />
-    <div class="info-name">${name}</div>
-    <div class="info-row">População: <span>${fmtNum(base.population)}</span></div>
-    <div class="info-row">PIB: <span>$${base.gdp}B</span></div>
-    <div class="info-row">Início: <span>${fmtNum(Math.round(base.gdp * 10))}💰 | ${Math.round(base.population / 100000)}👥</span></div>
-  `;
-
-  document.getElementById('btn-confirm-country').disabled = false;
-  populateCountryList(document.getElementById('country-search').value);
+  const col  = document.getElementById('country-selected-info');
+  if (col) {
+    col.innerHTML = `
+      <img src="${getFlagUrl(base.iso2)}" style="width:46px;height:30px;object-fit:cover;border-radius:3px;border:1px solid var(--border);display:block;margin:0 auto 10px" onerror="this.style.display='none'">
+      <div style="font-family:'Cinzel',serif;font-size:0.84rem;color:var(--gold);text-align:center;margin-bottom:8px">${name}</div>
+      <div class="panel-row"><span class="panel-label">PIB</span><span class="panel-value">$${base.gdp}B</span></div>
+      <div class="panel-row"><span class="panel-label">Pop.</span><span class="panel-value">${fmtNum(base.population)}</span></div>`;
+  }
+  if (typeof flyToCountry === 'function') flyToCountry(name);
 }
 
 // ── Notification ───────────────────────────────────────────
-function notify(msg, type = 'info') {
-  const el = document.getElementById('notification');
+function notify(msg, type) {
+  const el = document.getElementById('notify');
   if (!el) return;
-  clearTimeout(_notifTimer);
   el.textContent = msg;
-  el.className = `show ${type}`;
-  _notifTimer = setTimeout(() => el.className = '', 3000);
+  el.className   = `visible ${type || 'info'}`;
+  clearTimeout(_notifTimer);
+  _notifTimer = setTimeout(() => { el.className = ''; }, 3800);
 }
 
-// ── Inline action handlers (called from panel HTML) ────────
+// ── Diplomatic actions ─────────────────────────────────────
 function uiDeclareWar(country) {
+  if (!window.GS) return;
   const r = declareWar(window.GS, country);
-  if (r.ok) {
-    renderCountries(window.GS);
-    renderPanelForTab('info');
-    renderPanelForTab('diplo');
-    saveGame(window.GS);
-    notify(`⚔️ Guerra declarada contra ${country}!`, 'error');
-  } else notify(r.reason, 'error');
+  if (r.ok) { renderAll(); saveGame(window.GS); notify(`Guerra declarada contra ${country}!`, 'error'); }
+  else notify(r.reason, 'error');
 }
-
 function uiProposePeace(country) {
+  if (!window.GS) return;
   const r = proposePeace(window.GS, country);
-  if (r.ok && r.accepted) {
-    renderCountries(window.GS);
-    renderPanelForTab(_activeTab);
-    saveGame(window.GS);
-    notify(`🕊️ Paz firmada com ${country}`, 'info');
-  } else if (r.ok) {
-    notify(`❌ ${country} recusou a paz`, 'error');
-  } else notify(r.reason, 'error');
+  if (r.ok) { renderAll(); saveGame(window.GS); notify(r.accepted ? `Paz com ${country}` : `${country} recusou`, r.accepted ? 'success' : 'error'); }
 }
-
 function uiProposeAlliance(country) {
+  if (!window.GS) return;
   const r = proposeAlliance(window.GS, country);
-  if (r.ok && r.accepted) {
-    renderCountries(window.GS);
-    renderPanelForTab(_activeTab);
-    saveGame(window.GS);
-    notify(`🤝 Aliança com ${country} formada!`, 'info');
-  } else if (r.ok) {
-    notify(`❌ ${country} recusou a aliança`, 'error');
-  } else notify(r.reason, 'error');
+  if (r.ok) { renderAll(); saveGame(window.GS); notify(r.accepted ? `Aliança com ${country}!` : `${country} recusou`, r.accepted ? 'success' : 'error'); }
+  else notify(r.reason, 'error');
 }
-
 function uiSetEmbargo(country) {
+  if (!window.GS) return;
   setEmbargo(window.GS, country);
-  renderCountries(window.GS);
-  renderPanelForTab(_activeTab);
-  saveGame(window.GS);
-  notify(`🚫 Embargo aplicado a ${country}`, 'info');
+  renderAll(); saveGame(window.GS); notify(`Embargo a ${country}`, 'info');
 }
 
+// ── Unit actions ───────────────────────────────────────────
 function uiSelectUnit(unitId) {
-  window._selectedUnitId = unitId;
+  if (!window.GS) return;
   const unit = (window.GS.units || []).find(u => u.id === unitId);
-  if (unit) {
-    flyTo(unit.lat, unit.lng, 6);
-    notify(`${unit.name} — clique no mapa para mover`, 'info');
-  }
-  renderPanelForTab('military');
+  if (!unit) return;
+  window._selectedUnitId = unitId;
+  notify(`${unit.name} — clique no mapa para mover`, 'info');
+  _setTxt('selection-info', `${unit.name} — clique no mapa para mover`);
+  flyTo(unit.lat, unit.lng, Math.max(8, _getZoom()));
 }
-
 function uiDisbandUnit(unitId) {
-  const idx = (window.GS.units || []).findIndex(u => u.id === unitId);
-  if (idx === -1) return;
-  const unit = window.GS.units[idx];
-  window.GS.units.splice(idx, 1);
-  window.GS.resources.manpower += Math.floor((UNIT_DEFS[unit.type] || {}).manpower || 0);
-  renderUnits(window.GS);
-  renderPanelForTab('military');
-  saveGame(window.GS);
-  notify(`${unit.name} dispensado`, 'info');
+  if (!window.GS || !confirm('Dispensar esta unidade?')) return;
+  window.GS.units = (window.GS.units || []).filter(u => u.id !== unitId);
+  renderAll(); saveGame(window.GS); notify('Unidade dispensada.', 'info');
 }
 
-function uiRecruit(type) {
+// ── Build / recruit ────────────────────────────────────────
+function uiStartBuild(structType) {
+  if (typeof enterBuildMode === 'function') enterBuildMode(structType);
+}
+
+function uiRecruit(unitType) {
+  if (!window.GS) return;
   const state = window.GS;
-  if (!canRecruit(type, state.resources)) { notify('Recursos insuficientes', 'error'); return; }
-  deductRecruitCost(type, state.resources);
-  // Spawn near capital (rough center of player country)
-  const cap = _getPlayerCapitalCoords(state);
-  const unit = createUnit(type, state.player_country, cap.lat + (Math.random()-0.5)*3, cap.lng + (Math.random()-0.5)*3, 1);
-  if (!state.units) state.units = [];
-  state.units.push(unit);
-  state.game_log.unshift(`[Turno ${state.turn}] Recrutado: ${UNIT_DEFS[type].emoji} ${unit.name}`);
+  if (!canRecruit(unitType, state.resources)) { notify('Recursos insuficientes.', 'error'); return; }
+  deductRecruitCost(unitType, state.resources);
   closeRecruitModal();
-  renderUnits(state);
-  updateHeader(state);
-  renderPanelForTab('military');
-  saveGame(state);
-  notify(`${UNIT_DEFS[type].emoji} ${unit.name} recrutado!`, 'info');
+
+  const coords = _getCapitalCoords(state.player_country);
+  const unit   = createUnit(unitType, state.player_country, coords.lat, coords.lng);
+  state.units.push(unit);
+
+  if (typeof enterPlaceMode === 'function') {
+    enterPlaceMode(unit.name, (lat, lng) => {
+      unit.lat = lat; unit.lng = lng;
+      renderAll(); saveGame(state);
+      notify(`${unit.name} posicionado!`, 'success');
+    });
+    flyTo(coords.lat, coords.lng, Math.max(5, _getZoom()));
+  } else {
+    renderAll(); saveGame(state);
+    notify(`${unit.name} recrutado!`, 'success');
+  }
 }
 
-function _getPlayerCapitalCoords(state) {
-  // Very rough approximation: use country centroids
-  const centroids = {
-    'Brazil': { lat: -14, lng: -51 }, 'United States': { lat: 38, lng: -97 },
-    'Russia': { lat: 60, lng: 90 }, 'China': { lat: 35, lng: 103 },
-    'Germany': { lat: 51, lng: 10 }, 'France': { lat: 46, lng: 2 },
-    'United Kingdom': { lat: 55, lng: -3 }, 'Japan': { lat: 36, lng: 138 },
-    'India': { lat: 20, lng: 77 }, 'Canada': { lat: 56, lng: -96 },
-    'Australia': { lat: -25, lng: 133 }, 'Argentina': { lat: -38, lng: -63 },
-    'Mexico': { lat: 23, lng: -102 }, 'South Korea': { lat: 36, lng: 128 },
-    'Turkey': { lat: 39, lng: 35 }, 'Saudi Arabia': { lat: 23, lng: 45 },
-    'Italy': { lat: 41, lng: 12 }, 'Spain': { lat: 40, lng: -4 },
-    'Iran': { lat: 32, lng: 53 }, 'North Korea': { lat: 40, lng: 127 },
-  };
-  return centroids[state.player_country] || { lat: 0, lng: 0 };
+function uiUpgradeMinistry(key) {
+  if (!window.GS) return;
+  const state = window.GS;
+  const lvl   = (state.ministries || {})[key] || 1;
+  const cost  = ministryCost(lvl);
+  if (state.resources.money < cost) { notify('Dinheiro insuficiente.', 'error'); return; }
+  if (lvl >= 4) { notify('Ministério já no nível máximo.', 'error'); return; }
+  state.resources.money -= cost;
+  state.ministries[key] = lvl + 1;
+  renderAll(); saveGame(state);
+  notify(`${MINISTRY_DEFS[key].label} → nível ${lvl + 1}!`, 'success');
 }
 
-function uiStartBuild(type) {
-  closeBuildModal();
-  enterBuildMode(type);
-}
+function uiRecruitInProvince() { openRecruitModal(); }
 
-function closeBuildModal() {
-  document.getElementById('build-modal').classList.remove('visible');
+// ── Capital coords ─────────────────────────────────────────
+const CAPITAL_COORDS = {
+  'Brazil':          { lat: -15.77, lng: -47.93 },
+  'United States':   { lat:  38.89, lng: -77.03 },
+  'China':           { lat:  39.92, lng: 116.38 },
+  'Russia':          { lat:  55.75, lng:  37.62 },
+  'Germany':         { lat:  52.52, lng:  13.40 },
+  'France':          { lat:  48.85, lng:   2.35 },
+  'United Kingdom':  { lat:  51.51, lng:  -0.13 },
+  'Japan':           { lat:  35.68, lng: 139.69 },
+  'India':           { lat:  28.61, lng:  77.21 },
+  'Canada':          { lat:  45.42, lng: -75.69 },
+  'Australia':       { lat: -35.30, lng: 149.12 },
+  'South Korea':     { lat:  37.57, lng: 126.98 },
+  'Argentina':       { lat: -34.60, lng: -58.38 },
+  'Mexico':          { lat:  19.43, lng: -99.13 },
+  'Turkey':          { lat:  39.93, lng:  32.87 },
+  'Saudi Arabia':    { lat:  24.69, lng:  46.72 },
+  'Italy':           { lat:  41.90, lng:  12.49 },
+  'Spain':           { lat:  40.42, lng:  -3.70 },
+  'Iran':            { lat:  35.69, lng:  51.42 },
+  'North Korea':     { lat:  39.02, lng: 125.75 },
+};
+function _getCapitalCoords(country) {
+  return CAPITAL_COORDS[country] || { lat: 20, lng: 0 };
 }
-
-function uiUpgradeMinistry(name) {
-  const r = upgradeMinistry(name, window.GS);
-  if (r.ok) {
-    notify(`${MINISTRY_DEFS[name].label} melhorado!`, 'info');
-    updateHeader(window.GS);
-    renderPanelForTab('gov');
-    saveGame(window.GS);
-  } else notify(r.reason, 'error');
+function _getZoom() {
+  return typeof _currentZoom !== 'undefined' ? _currentZoom : 3;
 }
