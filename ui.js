@@ -25,6 +25,141 @@ const UNIT_REAL_PHOTOS = {
   nav1_carrier:    'https://commons.wikimedia.org/wiki/Special:FilePath/USS_Ronald_Reagan_(CVN-76).jpg',
 };
 
+// Map each research item to a stable Wikipedia ARTICLE TITLE. We fetch that
+// article's lead image at runtime via the MediaWiki API (origin=* → CORS ok).
+// Article titles are far more stable than guessing exact image file names.
+const RESEARCH_WIKI_TITLES = {
+  // Aviação — Caças
+  air2_f16_falcon:           'General Dynamics F-16 Fighting Falcon',
+  air2_fa18_hornet:          'McDonnell Douglas F/A-18 Hornet',
+  air1_eurofighter_typhoon:  'Eurofighter Typhoon',
+  air1_f22_raptor:           'Lockheed Martin F-22 Raptor',
+  // Bombardeiros
+  air2_a10_warthog:          'Fairchild Republic A-10 Thunderbolt II',
+  air2_su25_frogfoot:        'Sukhoi Su-25',
+  air1_b2_spirit:            'Northrop Grumman B-2 Spirit',
+  air1_b21_raider:           'Northrop Grumman B-21 Raider',
+  // Helicópteros
+  air2_apache_ah64:          'Boeing AH-64 Apache',
+  air2_mi28_havoc:           'Mil Mi-28',
+  air2_ka52_alligator:       'Kamov Ka-52',
+  // Drones
+  air3_bayraktar_tb2:        'Bayraktar TB2',
+  air3_mq9_reaper:           'General Atomics MQ-9 Reaper',
+  air3_rq4_global_hawk:      'Northrop Grumman RQ-4 Global Hawk',
+  // Transporte
+  air3_c130_hercules:        'Lockheed C-130 Hercules',
+  airsup_c17_globemaster:    'Boeing C-17 Globemaster III',
+  airsup_c5_galaxy:          'Lockheed C-5 Galaxy',
+  // Terrestre — Infantaria
+  sol_infantry_soldier:      'Infantry',
+  sol_army_ranger:           '75th Ranger Regiment',
+  sol_special_forces:        'United States Navy SEALs',
+  sol_paratrooper:           'Paratrooper',
+  // Veículos Leves
+  veh1_humvee_hmmwv:         'Humvee',
+  veh1_lav25_armored:        'LAV-25',
+  veh1_oshkosh_matv:         'Oshkosh M-ATV',
+  // IFV / APC
+  veh1_m113_apc:             'M113 armored personnel carrier',
+  veh2_bradley_m2:           'Bradley Fighting Vehicle',
+  veh2_cv90_ifv:             'Combat Vehicle 90',
+  veh2_bmp3_russian:         'BMP-3',
+  // Tanques
+  veh2_t90_tank:             'T-90',
+  tank1_leopard2a7:          'Leopard 2',
+  tank1_m1a2_abrams:         'M1 Abrams',
+  tank1_t14_armata:          'T-14 Armata',
+  // Artilharia
+  veh2_m109_paladin:         'M109 howitzer',
+  veh2_mlrs_m270:            'M270 Multiple Launch Rocket System',
+  veh2_bm30_smerch:          'BM-30 Smerch',
+  // Naval — Patrulha
+  nav3_river_patrol:         'Patrol boat',
+  nav3_visby_corvette:       'Visby-class corvette',
+  nav3_lcs_freedom:          'Freedom-class littoral combat ship',
+  // Fragatas
+  nav2_fremm_frigate:        'FREMM multipurpose frigate',
+  nav2_type26_frigate:       'Type 26 frigate',
+  nav2_ticonderoga_cruiser:  'Ticonderoga-class cruiser',
+  nav2_kirov_battlecruiser:  'Kirov-class battlecruiser',
+  // Destróieres
+  nav1_arleigh_burke:        'Arleigh Burke-class destroyer',
+  nav1_type45_daring:        'Type 45 destroyer',
+  nav1_zumwalt_destroyer:    'Zumwalt-class destroyer',
+  // Submarinos
+  nav2_losangeles_submarine: 'Los Angeles-class submarine',
+  nav1_virginia_submarine:   'Virginia-class submarine',
+  nav1_yasen_submarine:      'Yasen-class submarine',
+  // Porta-Aviões
+  nav1_kuznetsov_carrier:    'Soviet aircraft carrier Admiral Kuznetsov',
+  nav1_queen_elizabeth_carrier: 'HMS Queen Elizabeth (R08)',
+  nav1_gerald_ford_carrier:  'USS Gerald R. Ford',
+  // Armamentos — Defesa Aérea
+  grdsup_patriot_battery:    'MIM-104 Patriot',
+  grdsup_s400_tel:           'S-400 missile system',
+  grdsup_iron_dome:          'Iron Dome',
+  // Mísseis
+  wpn_cruise_missile:        'Tomahawk (missile)',
+  wpn_antiship_missile:      'Anti-ship missile',
+  wpn_bunker_buster:         'Bunker buster',
+  // Anti-Tanque
+  wpn_rpg:                   'RPG-7',
+  wpn_antitank_missile:      'FGM-148 Javelin',
+  // Munições
+  wpn_artillery_shell:       'Shell (projectile)',
+  wpn_cluster_bomb:          'Cluster munition',
+  wpn_nuclear_warhead:       'Nuclear weapon',
+  // Infraestrutura — Energia
+  civ_power_plant:           'Power station',
+  sup_solar_farm:            'Photovoltaic power station',
+  sup_wind_farm:             'Wind farm',
+  sup_hydro_dam:             'Hydroelectricity',
+  sup_nuclear_plant:         'Nuclear power plant',
+  // Aeroportos / Portos
+  civ_airport:               'Airport',
+  civ_seaport:               'Port',
+  // Pesquisa
+  sup_research_lab:          'Laboratory',
+  civ_data_center:           'Data center',
+  civ_university:            'University',
+  // Comunicações
+  civ_telecom_tower:         'Cell site',
+  sup_sat_uplink:            'Satellite ground station',
+  sup_sigint_station:        'Signals intelligence',
+};
+
+// Cache of resolved title → image URL so we only hit the API once each.
+const _wikiPhotoCache = {};
+
+// Load the lead image of a Wikipedia article into an <img>. Sets a placeholder
+// first (caller does that); swaps in the real photo when it resolves. Guards
+// against races by stamping imgEl.dataset.wikiTitle.
+function loadWikiPhoto(title, imgEl) {
+  if (!title || !imgEl) return;
+  imgEl.dataset.wikiTitle = title;
+  const apply = (src) => {
+    if (src && imgEl.dataset.wikiTitle === title) {
+      imgEl.src = src;
+      imgEl.style.display = 'block';
+    }
+  };
+  if (_wikiPhotoCache[title]) { apply(_wikiPhotoCache[title]); return; }
+  const url = 'https://en.wikipedia.org/w/api.php?action=query&format=json&origin=*'
+    + '&prop=pageimages&piprop=original%7Cthumbnail&pithumbsize=640&redirects=1'
+    + '&titles=' + encodeURIComponent(title);
+  fetch(url)
+    .then(r => r.json())
+    .then(d => {
+      const pages = d && d.query && d.query.pages;
+      if (!pages) return;
+      const p = Object.values(pages)[0] || {};
+      const src = (p.original && p.original.source) || (p.thumbnail && p.thumbnail.source);
+      if (src) { _wikiPhotoCache[title] = src; apply(src); }
+    })
+    .catch(() => { /* keep sprite placeholder */ });
+}
+
 // ── Sprite helper: retorna <img> ou div texto ──────────────
 function _unitImgHtml(unitType, size) {
   size = size || 40;
@@ -183,7 +318,7 @@ function renderInfoPanel(state) {
 
   const provinceSection = province ? `
     <div class="panel-section">
-      <div class="panel-title">PROVINCIA / ESTADO</div>
+      <div class="panel-title">PROVÍNCIA / ESTADO</div>
       <div style="font-family:'Cinzel',serif;font-size:0.95rem;color:var(--gold);margin-bottom:6px;">${province}</div>
       <div style="font-size:0.8rem;color:var(--muted);margin-bottom:8px;">${country}</div>
       ${isPlayer ? `<button class="btn-primary btn-success" onclick="uiRecruitInProvince()">+ RECRUTAR AQUI</button>` : ''}
@@ -194,7 +329,7 @@ function renderInfoPanel(state) {
     ${citySection}
     ${provinceSection}
     <div class="panel-section">
-      <div class="panel-title">INFORMACOES — ${province ? 'PAIS' : 'SELECAO'}</div>
+      <div class="panel-title">RELATÓRIO — ${province ? 'NAÇÃO' : 'SELEÇÃO'}</div>
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
         <img src="${getFlagUrl(base.iso2)}" style="width:40px;height:27px;object-fit:cover;border-radius:3px;border:1px solid var(--border);" onerror="this.style.display='none'" />
         <div>
@@ -202,23 +337,23 @@ function renderInfoPanel(state) {
           <div style="font-size:0.8rem;color:var(--muted)">${rel}</div>
         </div>
       </div>
-      <div class="panel-row"><span class="panel-label">Populacao</span><span class="panel-value">${fmtNum(base.population)}</span></div>
+      <div class="panel-row"><span class="panel-label">População</span><span class="panel-value">${fmtNum(base.population)}</span></div>
       <div class="panel-row"><span class="panel-label">PIB</span><span class="panel-value">$${base.gdp}B</span></div>
       ${isPlayer ? `<div class="panel-row"><span class="panel-label">Satisfacao</span><span class="panel-value ${state.satisfaction < 20 ? 'red' : state.satisfaction > 60 ? 'green' : ''}">${Math.round(state.satisfaction || 50)}%</span></div>` : ''}
     </div>
 
     ${!isPlayer ? `
     <div class="panel-section">
-      <div class="panel-title">ACOES DIPLOMATICAS</div>
+      <div class="panel-title">AÇÕES DIPLOMÁTICAS</div>
       <button class="btn-primary btn-danger" onclick="uiDeclareWar('${country}')">DECLARAR GUERRA</button>
       <button class="btn-primary btn-success" onclick="uiProposePeace('${country}')">PROPOR PAZ</button>
-      <button class="btn-primary" onclick="uiProposeAlliance('${country}')">PROPOR ALIANCA</button>
-      <button class="btn-primary" onclick="uiSetEmbargo('${country}')">EMBARGO ECONOMICO</button>
+      <button class="btn-primary" onclick="uiProposeAlliance('${country}')">PROPOR ALIANÇA</button>
+      <button class="btn-primary" onclick="uiSetEmbargo('${country}')">EMBARGO ECONÔMICO</button>
     </div>
     ` : ''}
 
     <div class="panel-section">
-      <div class="panel-title">CONTROLES</div>
+      <div class="panel-title">COMANDO</div>
       <button class="btn-primary" onclick="flyToCountry('${country}')">IR PARA ${country.toUpperCase()}</button>
     </div>
   `;
@@ -265,8 +400,8 @@ function renderMilitaryPanel(state) {
   return `
     <div class="panel-section">
       <div class="panel-title">SUAS FORÇAS (${playerUnits.length})</div>
-      <button class="btn-military success" onclick="openRecruitModal()">+ RECRUTAR UNIDADE</button>
-      ${playerUnits.length === 0 ? '<p style="color:#5a7a55;font-size:0.82rem;margin-top:8px">Sem unidades. Recrute sua primeira força.</p>' : unitCards}
+      <button class="btn-military success" onclick="openRecruitModal()">+ RECRUTAR TROPAS</button>
+      ${playerUnits.length === 0 ? '<p style="color:#5a7a55;font-size:0.82rem;margin-top:8px">Nenhuma tropa em campo. Convoque seu primeiro exército.</p>' : unitCards}
     </div>
     ${enemyUnits.length > 0 ? `
     <div class="panel-section">
@@ -302,16 +437,21 @@ function openUnitDetail(unitId) {
   const typeEl = document.getElementById('unit-detail-type');
   const statsEl = document.getElementById('unit-detail-stats');
 
-  // Photo
-  const photoUrl = UNIT_REAL_PHOTOS[unit.type] || '';
-  photo.style.display = 'block';
+  // Photo: sprite as instant placeholder, then swap in a real Wikipedia photo.
   fallback.style.display = 'none';
-  if (photoUrl) {
-    photo.src = photoUrl;
+  const spriteUrl = (typeof getUnitSpriteDataUrl === 'function') ? getUnitSpriteDataUrl(unit.type, 256) : null;
+  if (spriteUrl) {
+    photo.src = spriteUrl; photo.style.display = 'block';
   } else {
     photo.style.display = 'none';
     fallback.style.display = 'flex';
     fallback.innerHTML = _unitImgHtml(unit.type, 80);
+  }
+  photo.dataset.wikiTitle = '';
+  const wikiTitle = RESEARCH_WIKI_TITLES[unit.type];
+  if (wikiTitle) {
+    photo.style.display = 'block'; fallback.style.display = 'none';
+    loadWikiPhoto(wikiTitle, photo);
   }
 
   nameEl.textContent = unit.name;
@@ -426,16 +566,16 @@ function renderGovPanel(state) {
 
   return `
     <div class="panel-section">
-      <div class="panel-title">SITUACAO DO GOVERNO</div>
-      <div class="panel-row"><span class="panel-label">Satisfacao Popular</span><span class="panel-value ${satColor}">${sat}%</span></div>
-      <div style="display:flex;align-items:center;gap:8px;margin:4px 0 10px">${satBar}<span style="font-size:0.75rem;color:var(--muted)">${sat < 20 ? 'RISCO DE REVOLUCAO!' : sat < 40 ? 'Baixa' : sat < 70 ? 'Estavel' : 'Alta'}</span></div>
+      <div class="panel-title">ESTADO DA NAÇÃO</div>
+      <div class="panel-row"><span class="panel-label">Satisfação Popular</span><span class="panel-value ${satColor}">${sat}%</span></div>
+      <div style="display:flex;align-items:center;gap:8px;margin:4px 0 10px">${satBar}<span style="font-size:0.75rem;color:var(--muted)">${sat < 20 ? 'RISCO DE REVOLUÇÃO!' : sat < 40 ? 'Baixa' : sat < 70 ? 'Estável' : 'Alta'}</span></div>
       <div class="panel-row"><span class="panel-label">Renda/turno</span><span class="panel-value green">+${income} MON</span></div>
       <div class="panel-row"><span class="panel-label">Despesas/turno</span><span class="panel-value red">-${expenses} MON</span></div>
       <div class="panel-row"><span class="panel-label">Saldo</span><span class="panel-value ${income > expenses ? 'green' : 'red'}">${income > expenses ? '+' : ''}${income - expenses} MON</span></div>
-      <div class="panel-row"><span class="panel-label">Em guerra com</span><span class="panel-value red">${atWarCount} paises</span></div>
+      <div class="panel-row"><span class="panel-label">Em guerra com</span><span class="panel-value red">${atWarCount} nações</span></div>
     </div>
     <div class="panel-section">
-      <div class="panel-title">MINISTERIOS</div>
+      <div class="panel-title">MINISTÉRIOS</div>
       ${ministryCards}
     </div>
     <div class="panel-section">
@@ -458,7 +598,7 @@ function renderDiploPanel(state) {
   const groups = {
     'Em Guerra':  allNames.filter(n => getRelation(state, n) === 'war'),
     'Aliados':    allNames.filter(n => getRelation(state, n) === 'alliance'),
-    'Tregua':     allNames.filter(n => getRelation(state, n) === 'truce'),
+    'Trégua':     allNames.filter(n => getRelation(state, n) === 'truce'),
     'Embargo':    allNames.filter(n => getRelation(state, n) === 'embargo'),
   };
 
@@ -480,12 +620,12 @@ function renderDiploPanel(state) {
 
   return `
     <div class="panel-section">
-      <div class="panel-title">RELACOES DIPLOMATICAS</div>
-      ${sections || '<p style="color:var(--muted);font-size:0.85rem">Nenhuma relacao especial ativa.</p>'}
+      <div class="panel-title">RELAÇÕES DIPLOMÁTICAS</div>
+      ${sections || '<p style="color:var(--muted);font-size:0.85rem">Nenhuma relação especial ativa.</p>'}
     </div>
     <div class="panel-section">
-      <div class="panel-title">ACOES</div>
-      <p style="color:var(--muted);font-size:0.8rem">Clique em um pais no mapa ou na aba INFO para acoes diplomaticas.</p>
+      <div class="panel-title">AÇÕES</div>
+      <p style="color:var(--muted);font-size:0.8rem">Clique em uma nação no mapa ou na aba NAÇÃO para agir diplomaticamente.</p>
     </div>
   `;
 }
@@ -503,7 +643,7 @@ function renderLogPanel(state) {
     return `<div class="${cls}">${e}</div>`;
   }).join('');
 
-  return `<div class="panel-section"><div class="panel-title">REGISTRO DE EVENTOS</div>${html}</div>`;
+  return `<div class="panel-section"><div class="panel-title">CRÔNICAS DE GUERRA</div>${html}</div>`;
 }
 
 function attachPanelEvents(tab, state) {}
@@ -564,8 +704,13 @@ function uiOpenResearchDetail(catKey, lineKey, levelIdx) {
   const cell = getResearchCellState(state, catKey, lineKey, levelIdx);
   const modal = document.getElementById('research-detail-modal');
   const photo = document.getElementById('research-detail-photo');
-  const url = (typeof getSpriteDataUrl === 'function') ? getSpriteDataUrl(lvl.sheet, lvl.sprite, 256) : null;
-  if (url) { photo.src = url; photo.style.display = 'block'; } else { photo.style.display = 'none'; }
+  // Show the sprite immediately as a placeholder, then swap in a real photo
+  // fetched from Wikipedia (if we have an article title for this item).
+  const spriteUrl = (typeof getSpriteDataUrl === 'function') ? getSpriteDataUrl(lvl.sheet, lvl.sprite, 256) : null;
+  if (spriteUrl) { photo.src = spriteUrl; photo.style.display = 'block'; } else { photo.style.display = 'none'; }
+  photo.dataset.wikiTitle = '';
+  const wikiTitle = RESEARCH_WIKI_TITLES[lvl.sprite];
+  if (wikiTitle) loadWikiPhoto(wikiTitle, photo);
   document.getElementById('research-detail-name').textContent = lvl.name;
   document.getElementById('research-detail-meta').textContent =
     `${RESEARCH_TREE[catKey].label} — ${RESEARCH_TREE[catKey].lines[lineKey].label} — Nível ${levelIdx+1}`;
@@ -673,14 +818,24 @@ function openRecruitModal() {
       } else if (!afford) {
         reason = 'Recursos insuficientes';
       }
-      return `<div class="recruit-item${ok ? '' : ' disabled-item'}" ${ok ? `onclick="uiRecruit('${type}')"` : 'style="cursor:not-allowed;"'}>
+      const safeType = type.replace(/'/g, "\\'");
+      return `<div class="recruit-item${ok ? '' : ' disabled-item'}" style="${ok ? '' : 'cursor:not-allowed;'}">
         ${_unitImgHtml(type, 56)}
         <div class="recruit-item-info" style="margin-left:10px;flex:1;">
           <div style="font-size:0.85rem">${def.label} <span style="font-size:0.7rem;color:var(--muted)">(Tier ${def.tier})</span></div>
           <div style="font-size:0.72rem;color:var(--muted)">ATQ:${def.atk} DEF:${def.def} VEL:${def.speed}km/h</div>
           ${reason ? `<div style="font-size:0.68rem;color:var(--red)">${reason}</div>` : ''}
         </div>
-        <div class="recruit-item-cost"><span>${def.cost} MON</span> / ${def.manpower} MAN</div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex-shrink:0;">
+          <div class="recruit-item-cost"><span>${def.cost} MON</span> / ${def.manpower} MAN</div>
+          ${ok ? `<div style="display:flex;gap:4px;align-items:center;">
+            <input type="number" id="qty-${type}" min="1" max="999" value="1"
+              onclick="event.stopPropagation()"
+              style="width:50px;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:2px 5px;border-radius:3px;font-size:0.8rem;text-align:center;">
+            <button class="btn-military" style="padding:4px 9px;font-size:0.72rem;letter-spacing:0.5px;"
+              onclick="event.stopPropagation();uiRecruit('${safeType}',+document.getElementById('qty-${type}').value||1)">RECRUTAR</button>
+          </div>` : ''}
+        </div>
       </div>`;
     }).join('');
     return `<div style="margin-bottom:12px">
@@ -820,33 +975,52 @@ function uiDisbandUnit(unitId) {
   notify(`${unit.name} dispensado`, 'info');
 }
 
-function uiRecruit(type) {
+function uiRecruit(type, qty) {
   const state = window.GS;
-  if (!canRecruit(type, state.resources)) { notify('Recursos insuficientes', 'error'); return; }
+  qty = Math.max(1, Math.floor(qty) || 1);
+  const def = UNIT_DEFS[type];
+  if (!def) return;
 
-  deductRecruitCost(type, state.resources);
-  const unit = createUnit(type, state.player_country, 0, 0, 1);
+  const totalCost     = def.cost     * qty;
+  const totalManpower = def.manpower * qty;
+  if (state.resources.money < totalCost || state.resources.manpower < totalManpower) {
+    const maxAfford = Math.min(
+      Math.floor(state.resources.money    / def.cost),
+      Math.floor(state.resources.manpower / def.manpower)
+    );
+    notify(`Recursos insuficientes para ${qty}x ${def.label}. Máximo: ${maxAfford}`, 'error');
+    return;
+  }
+
+  state.resources.money    -= totalCost;
+  state.resources.manpower -= totalManpower;
+
+  const units = [];
+  for (let i = 0; i < qty; i++) units.push(createUnit(type, state.player_country, 0, 0, 1));
+
   closeRecruitModal();
   updateHeader(state);
 
+  // Use the first unit as the "anchor" for placement — all others stack at same spot.
   enterPlaceUnitMode(
-    unit,
+    units[0],
     (lat, lng) => {
-      unit.lat = lat;
-      unit.lng = lng;
       if (!state.units) state.units = [];
-      state.units.push(unit);
-      state.game_log.unshift(`[Turno ${state.turn}] Recrutado: ${UNIT_DEFS[unit.type].label} — ${unit.name}`);
+      units.forEach(u => {
+        u.lat = lat;
+        u.lng = lng;
+        state.units.push(u);
+        state.game_log.unshift(`[Turno ${state.turn}] Recrutado: ${def.label} — ${u.name}`);
+      });
       renderUnits(state);
       renderPanelForTab('military');
       saveGame(state);
-      notify(`${unit.name} posicionado`, 'info');
+      notify(qty === 1 ? `${units[0].name} posicionado` : `${qty}x ${def.label} posicionados`, 'info');
       flyTo(lat, lng, 6);
     },
     () => {
-      const def = UNIT_DEFS[unit.type];
-      state.resources.money    += def.cost;
-      state.resources.manpower += def.manpower;
+      state.resources.money    += totalCost;
+      state.resources.manpower += totalManpower;
       updateHeader(state);
       notify('Recrutamento cancelado — recursos reembolsados', 'info');
     },
