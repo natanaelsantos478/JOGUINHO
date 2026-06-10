@@ -273,11 +273,21 @@ function _renderSingleUnit(unit, state, overrideLat, overrideLng) {
   const isAlly    = (state.allies || []).includes(unit.country);
   const isSelected = window._selectedUnitId === unit.id;
 
-  const icon = createUnitIconSync(unit.type, isPlayer);
+  const icon = createUnitIconSync(unit.type, isPlayer, isEnemy);
   const marker = L.marker([lat, lng], {
     icon,
     zIndexOffset: isPlayer ? 1000 : isEnemy ? 500 : 0,
   });
+
+  // Selection ring + combat alert markers (map_movement sprites)
+  if (isSelected) {
+    const selIcon = createMapSpriteIcon('map_select_green', 54);
+    if (selIcon) L.marker([lat, lng], { icon: selIcon, interactive: false, zIndexOffset: 900 }).addTo(_lyrTactical);
+  }
+  if (unit.inCombat) {
+    const alertIcon = createMapSpriteIcon('map_alert_orange', 18);
+    if (alertIcon) L.marker([lat + 0.06, lng + 0.06], { icon: alertIcon, interactive: false, zIndexOffset: 1100 }).addTo(_lyrTactical);
+  }
 
   const def  = UNIT_DEFS[unit.type] || {};
   const lvNm = levelName(unit.level);
@@ -367,6 +377,12 @@ function _renderFrontLines(state) {
       interactive: false,
       className: 'front-line',
     }).addTo(_lyrFrontLines);
+
+    // Front-line badge at segment midpoint
+    const mLat = (seg[0][0] + seg[1][0]) / 2;
+    const mLng = (seg[0][1] + seg[1][1]) / 2;
+    const flIcon = createMapSpriteIcon('map_front_line', 22);
+    if (flIcon) L.marker([mLat, mLng], { icon: flIcon, interactive: false }).addTo(_lyrFrontLines);
   });
 }
 
@@ -374,9 +390,20 @@ function _renderFrontLines(state) {
 function renderStructures(state) {
   if (!_map) return;
   _lyrStructures.clearLayers();
+
+  // Capital flag (map_flag_blue) at the player's capital
+  if (state.player_country && typeof _getCapitalCoords === 'function') {
+    const cap = _getCapitalCoords(state.player_country);
+    const flagIcon = createMapSpriteIcon('map_flag_blue', 28);
+    if (flagIcon) {
+      L.marker([cap.lat, cap.lng], { icon: flagIcon, interactive: false, zIndexOffset: 200 })
+        .addTo(_lyrStructures);
+    }
+  }
+
   (state.structures || []).forEach(s => {
     if (!s.lat || !s.lng) return;
-    const icon = createStructureIcon(s.type);
+    const icon = createStructureIcon(s.type, s.complete);
     const m    = L.marker([s.lat, s.lng], { icon });
     const def  = STRUCTURE_DEFS[s.type] || {};
     m.bindTooltip(
@@ -449,6 +476,14 @@ function _drawRouteArrow(fromLat, fromLng, toLat, toLng, color, dashed) {
 function animateUnitMove(unit, destLat, destLng, onDone) {
   clearRoutes();
   _drawRouteArrow(unit.lat, unit.lng, destLat, destLng, '#c8a84b', true);
+
+  // Destination waypoint marker (map_waypoint_diamond)
+  const wpIcon = createMapSpriteIcon('map_waypoint_diamond', 24);
+  if (wpIcon) {
+    const wp = L.marker([destLat, destLng], { icon: wpIcon, interactive: false }).addTo(_lyrRoutes);
+    _routeObjects.push(wp);
+  }
+
   if (unit._marker) unit._marker.setLatLng([destLat, destLng]);
   setTimeout(() => {
     clearRoutes();
@@ -544,9 +579,9 @@ function getAllCountryNames() {
     .filter(Boolean).sort();
 }
 
-// ── getSpriteDataUrl (needed by ui.js) ─────────────────────
+// ── getSpriteDataUrl (legacy helper) ───────────────────────
 function getUnitSpriteDataUrl(unitType, size) {
-  const map = UNIT_SPRITE_MAP[unitType];
-  if (!map || !map.sheet) return null;
-  return _renderSpriteToDataUrl(map.sheet, map.sprite, size || 40);
+  const def = UNIT_DEFS[unitType];
+  if (!def || !def.sheet) return null;
+  return spriteDataUrl(def.sheet, def.sprite, size || 40, 'round');
 }

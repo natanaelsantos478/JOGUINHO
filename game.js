@@ -12,6 +12,7 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   setLoadingMsg('Carregando sprites...');
   await initSprites();
+  buildUnitCatalog();
 
   setLoadingMsg('Verificando save...');
   const save = await loadGame();
@@ -62,6 +63,7 @@ function buildStateFromSave(row) {
     at_war_with:    row.at_war_with || [],
     allies:         row.allies      || [],
     ministries:     res.ministries  || initMinistries(),
+    arsenal:        res.arsenal     || {},
     satisfaction:   res.satisfaction != null ? res.satisfaction : 50,
     map_view:       row.map_view   || null,
     game_log:       row.game_log   || [],
@@ -86,6 +88,7 @@ async function confirmCountrySelection(countryName) {
     at_war_with:    [],
     allies:         [],
     ministries:     initMinistries(),
+    arsenal:        {},
     satisfaction:   50,
     map_view:       null,
     game_log:       [`[Turno 1] 🎮 Campanha iniciada como ${countryName}`],

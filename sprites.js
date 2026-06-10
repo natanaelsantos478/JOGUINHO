@@ -1,53 +1,29 @@
 // ═══════════════════════════════════════════════════════════
 //  sprites.js — Sprite sheet loading + rendering utilities
+//  All 20 sheets / 252 sprites are preloaded and addressable
 // ═══════════════════════════════════════════════════════════
 
-let _spriteCoords = null;   // parsed sprites_coords.json
-const _imageCache = {};     // sheetName → HTMLImageElement
+let _spriteCoords  = null;   // parsed sprites_coords.json
+const _imageCache   = {};    // sheetName → HTMLImageElement
+const _dataUrlCache = {};    // "sheet|sprite|size|shape" → dataURL
 
-// Unit type → sheet + specific sprite name + fallback emoji
-const UNIT_SPRITE_MAP = {
-  infantry:        { sheet: 'sheet_soldiers.png',          sprite: 'sol_infantry_soldier',     emoji: '🪖' },
-  motorized:       { sheet: 'sheet_ground_support.png',  sprite: null,                        emoji: '🚗' },
-  veh_light:       { sheet: 'sheet_vehicles_light.png',  sprite: 'veh1_humvee_hmmwv',        emoji: '🚙' },
-  veh_medium:      { sheet: 'sheet_vehicles_medium.png', sprite: 'veh2_bradley_m2',          emoji: '🚛' },
-  tank_elite:      { sheet: 'sheet_tanks_level1.png',    sprite: 'tank1_m1a2_abrams',        emoji: '🛡️' },
-  artillery:       { sheet: 'sheet_ground_support.png',  sprite: null,                        emoji: '💣' },
-  air3_drone:      { sheet: 'sheet_air_level3.png',      sprite: 'air3_mq9_reaper',          emoji: '🚁' },
-  air2_fighter:    { sheet: 'sheet_air_level2.png',      sprite: 'air2_f16_falcon',          emoji: '✈️' },
-  air2_helicopter: { sheet: 'sheet_air_level2.png',      sprite: null,                        emoji: '🚁' },
-  air1_stealth:    { sheet: 'sheet_air_level1.png',      sprite: 'air1_f35_lightning',       emoji: '🛩️' },
-  air_transport:   { sheet: 'sheet_air_support.png',     sprite: null,                        emoji: '🛫' },
-  nav3_patrol:     { sheet: 'sheet_naval_level3.png',    sprite: 'nav3_lcs_freedom',         emoji: '⛵' },
-  nav2_frigate:    { sheet: 'sheet_naval_level2.png',    sprite: 'nav2_ticonderoga_cruiser', emoji: '🚢' },
-  nav1_destroyer:  { sheet: 'sheet_naval_level1.png',    sprite: 'nav1_gerald_ford_carrier', emoji: '🛳️' },
-  nav1_carrier:    { sheet: 'sheet_naval_level1.png',    sprite: 'nav1_gerald_ford_carrier', emoji: '⚓' },
-};
-
-const STRUCTURE_SPRITE_MAP = {
-  mil_barracks:       { sheet: 'sheet_structures_military.png', emoji: '🏠' },
-  mil_airbase:        { sheet: 'sheet_structures_military.png', emoji: '✈️' },
-  mil_naval_base:     { sheet: 'sheet_structures_military.png', emoji: '⚓' },
-  mil_radar_station:  { sheet: 'sheet_structures_military.png', emoji: '📡' },
-  mil_missile_silo:   { sheet: 'sheet_structures_military.png', emoji: '🚀' },
-  mil_nuclear_bunker: { sheet: 'sheet_structures_military.png', emoji: '☢️' },
-  sup_fob_supply:     { sheet: 'sheet_structures_support.png',  emoji: '⛺' },
-  sup_logistics_hub:  { sheet: 'sheet_structures_support.png',  emoji: '🏭' },
-  mil_field_hospital: { sheet: 'sheet_structures_support.png',  emoji: '🏥' },
-  civ_hospital:       { sheet: 'sheet_structures_civilian.png', emoji: '🏥' },
-  civ_power_plant:    { sheet: 'sheet_structures_civilian.png', emoji: '⚡' },
-  civ_seaport:        { sheet: 'sheet_structures_civilian.png', emoji: '🚢' },
-  civ_airport:        { sheet: 'sheet_structures_civilian.png', emoji: '✈️' },
-};
+const ALL_SHEETS = [
+  'sheet_air_level1.png',  'sheet_air_level2.png',  'sheet_air_level3.png',
+  'sheet_air_support.png', 'sheet_tanks_level1.png',
+  'sheet_vehicles_light.png', 'sheet_vehicles_medium.png',
+  'sheet_naval_level1.png', 'sheet_naval_level2.png', 'sheet_naval_level3.png',
+  'sheet_naval_support.png', 'sheet_ground_support.png',
+  'sheet_soldiers.png', 'sheet_map_movement.png', 'sheet_icons_events.png',
+  'sheet_structures_civilian.png', 'sheet_structures_support.png',
+  'sheet_structures_military.png', 'sheet_supplies.png', 'sheet_weapons.png',
+];
 
 async function initSprites() {
   try {
     const res = await fetch('sprites_coords.json');
     if (res.ok) {
       _spriteCoords = await res.json();
-      // Pre-load all referenced sheets so createUnitIconSync can render synchronously
-      const sheets = [...new Set(Object.values(UNIT_SPRITE_MAP).map(m => m.sheet).filter(Boolean))];
-      await Promise.all(sheets.map(s => _loadSheet(s)));
+      await Promise.all(ALL_SHEETS.map(s => _loadSheet(s)));
       console.log('Sprites loaded:', Object.keys(_spriteCoords.sheets || {}).length, 'sheets');
     }
   } catch (e) {
@@ -74,91 +50,130 @@ function _getSprite(sheetName, spriteName) {
   return Object.values(sheet.sprites)[0] || null;
 }
 
-// Draws a unit sprite onto a canvas DataURL; returns null on failure
-function _renderSpriteToDataUrl(sheetName, spriteName, size) {
+// ── Core: sprite → dataURL (cached) ────────────────────────
+// shape: 'square' (rounded card) | 'round' (circular clip)
+function spriteDataUrl(sheetName, spriteName, size, shape) {
+  size  = size  || 64;
+  shape = shape || 'square';
+  const key = `${sheetName}|${spriteName}|${size}|${shape}`;
+  if (_dataUrlCache[key]) return _dataUrlCache[key];
+
   const img = _imageCache[sheetName];
   const sp  = _getSprite(sheetName, spriteName);
   if (!img || !sp) return null;
+
   const cvs = document.createElement('canvas');
   cvs.width = size; cvs.height = size;
   const ctx = cvs.getContext('2d');
-  ctx.beginPath();
-  ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
-  ctx.clip();
+  if (shape === 'round') {
+    ctx.beginPath();
+    ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
+    ctx.clip();
+  }
   ctx.drawImage(img, sp.x, sp.y, sp.w, sp.h, 0, 0, size, size);
-  return cvs.toDataURL();
+  const url = cvs.toDataURL();
+  _dataUrlCache[key] = url;
+  return url;
 }
 
-// Synchronous icon — uses cached sprite if available, else emoji
-function createUnitIconSync(unitType, isPlayer) {
-  const map = UNIT_SPRITE_MAP[unitType] || { emoji: '❓' };
-  const size = 36;
-  const borderColor = isPlayer ? 'rgba(200,168,75,0.7)' : 'rgba(192,37,58,0.7)';
-  const bg          = isPlayer ? '#1a1506' : '#1a0508';
+// ── HTML helpers ───────────────────────────────────────────
+function spriteImg(sheetName, spriteName, size, extraStyle) {
+  size = size || 40;
+  const url = spriteDataUrl(sheetName, spriteName, Math.min(128, size * 2), 'square');
+  if (!url) return `<span style="font-size:${Math.round(size*0.7)}px">▪</span>`;
+  return `<img src="${url}" width="${size}" height="${size}" draggable="false" style="display:block;border-radius:6px;${extraStyle || ''}">`;
+}
 
-  if (_spriteCoords && map.sheet && _imageCache[map.sheet]) {
-    const dataUrl = _renderSpriteToDataUrl(map.sheet, map.sprite, size);
-    if (dataUrl) {
-      return L.divIcon({
-        html: `<div style="position:relative;width:${size}px;height:${size}px;border-radius:50%;border:2px solid ${borderColor};overflow:hidden;box-sizing:border-box;"><img src="${dataUrl}" width="${size}" height="${size}" style="display:block;" /></div>`,
-        className: '',
-        iconSize: [size, size],
-        iconAnchor: [size / 2, size / 2],
-        popupAnchor: [0, -size / 2],
-      });
-    }
+function spriteImgRound(sheetName, spriteName, size, borderColor) {
+  size = size || 40;
+  const url = spriteDataUrl(sheetName, spriteName, Math.min(128, size * 2), 'round');
+  if (!url) return `<span style="font-size:${Math.round(size*0.7)}px">▪</span>`;
+  const bc = borderColor || 'var(--border)';
+  return `<img src="${url}" width="${size}" height="${size}" draggable="false" style="display:block;border-radius:50%;border:2px solid ${bc};box-sizing:border-box;">`;
+}
+
+// Unit portrait — reads sheet/sprite from UNIT_DEFS
+function unitImg(unitType, size, shape) {
+  const def = (typeof UNIT_DEFS !== 'undefined') ? UNIT_DEFS[unitType] : null;
+  if (def && def.sheet) {
+    return shape === 'round'
+      ? spriteImgRound(def.sheet, def.sprite, size)
+      : spriteImg(def.sheet, def.sprite, size);
+  }
+  const emoji = def ? (def.emoji || '❓') : '❓';
+  return `<div style="width:${size}px;height:${size}px;border-radius:6px;background:#0c1220;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:${Math.round(size*0.55)}px">${emoji}</div>`;
+}
+
+// Map-movement order icon (sheet_map_movement.png)
+function mapIconUrl(name, size) {
+  return spriteDataUrl('sheet_map_movement.png', name, size || 48, 'square');
+}
+
+// Event icon (sheet_icons_events.png)
+function eventImg(name, size) {
+  return spriteImg('sheet_icons_events.png', name, size || 22);
+}
+
+// ── Leaflet unit icon (tactical view) ──────────────────────
+function createUnitIconSync(unitType, isPlayer, isEnemy) {
+  const def  = (typeof UNIT_DEFS !== 'undefined') ? UNIT_DEFS[unitType] : null;
+  const size = 38;
+  const borderColor = isPlayer ? '#c8a84b' : isEnemy ? '#c0253a' : '#3a4a5a';
+
+  const url = def && def.sheet ? spriteDataUrl(def.sheet, def.sprite, size * 2, 'round') : null;
+  if (url) {
+    return L.divIcon({
+      html: `<div class="unit-marker" style="width:${size}px;height:${size}px;border-radius:50%;border:2px solid ${borderColor};overflow:hidden;box-sizing:border-box;box-shadow:0 1px 6px rgba(0,0,0,.7),0 0 8px ${borderColor}33;background:#0a0e16;"><img src="${url}" width="${size-4}" height="${size-4}" style="display:block;" /></div>`,
+      className: '',
+      iconSize:   [size, size],
+      iconAnchor: [size / 2, size / 2],
+      popupAnchor: [0, -size / 2],
+    });
   }
 
+  const emoji = def ? (def.emoji || '❓') : '❓';
   return L.divIcon({
-    html: `<div style="width:${size}px;height:${size}px;background:${bg};border-radius:50%;border:2px solid ${borderColor};display:flex;align-items:center;justify-content:center;font-size:16px;line-height:1;">${map.emoji}</div>`,
+    html: `<div style="width:${size}px;height:${size}px;background:#0a0e16;border-radius:50%;border:2px solid ${borderColor};display:flex;align-items:center;justify-content:center;font-size:16px;line-height:1;">${emoji}</div>`,
     className: '',
-    iconSize: [size, size],
+    iconSize:   [size, size],
     iconAnchor: [size / 2, size / 2],
     popupAnchor: [0, -size / 2],
   });
 }
 
-// Async version (kept for completeness; map.js uses the sync version)
-async function createUnitIcon(unitType, level, isPlayer) {
-  const map = UNIT_SPRITE_MAP[unitType] || { sheet: null, emoji: '❓' };
-  const size = 40;
-
-  if (_spriteCoords && map.sheet) {
-    const img = await _loadSheet(map.sheet);
-    if (img) {
-      const dataUrl = _renderSpriteToDataUrl(map.sheet, map.sprite, size);
-      if (dataUrl) {
-        const badge = level > 1 ? `<div style="position:absolute;bottom:-4px;right:-4px;background:#0a0c10;border:1px solid #8a6f2e;border-radius:3px;font-size:0.6rem;color:#c8a84b;padding:1px 3px;font-family:'Cinzel',serif;">Lv${level}</div>` : '';
-        return L.divIcon({
-          html: `<div style="position:relative;width:${size}px;height:${size}px;border-radius:50%;border:2px solid ${isPlayer ? 'rgba(200,168,75,0.7)' : 'rgba(192,37,58,0.7)'};overflow:hidden;">${'<img src="' + dataUrl + '" width="' + size + '" height="' + size + '" />'}${badge}</div>`,
-          className: '',
-          iconSize: [size, size],
-          iconAnchor: [size / 2, size / 2],
-          popupAnchor: [0, -size / 2],
-        });
-      }
-    }
+// ── Leaflet structure icon — uses real structure sprites ───
+function createStructureIcon(structType, complete) {
+  const def = (typeof STRUCTURE_DEFS !== 'undefined') ? STRUCTURE_DEFS[structType] : null;
+  const size = 34;
+  const url = def && def.sheet ? spriteDataUrl(def.sheet, def.sprite || structType, size * 2, 'square') : null;
+  if (url) {
+    const dim = complete === false ? 'filter:grayscale(.8) brightness(.6);' : '';
+    return L.divIcon({
+      html: `<div style="width:${size}px;height:${size}px;border-radius:6px;border:1px solid #2a3448;overflow:hidden;box-shadow:0 1px 5px rgba(0,0,0,.7);${dim}"><img src="${url}" width="${size}" height="${size}" style="display:block"></div>`,
+      className: '',
+      iconSize: [size, size],
+      iconAnchor: [size / 2, size / 2],
+    });
   }
-
-  const bg = isPlayer ? '#1a1506' : '#1a0508';
-  const bc = isPlayer ? 'rgba(200,168,75,0.7)' : 'rgba(192,37,58,0.7)';
+  const emoji = def ? (def.emoji || '🏗️') : '🏗️';
   return L.divIcon({
-    html: `<div style="width:${size}px;height:${size}px;background:${bg};border-radius:50%;border:2px solid ${bc};display:flex;align-items:center;justify-content:center;font-size:18px;line-height:1;">${map.emoji}</div>`,
-    className: '',
-    iconSize: [size, size],
-    iconAnchor: [size / 2, size / 2],
-    popupAnchor: [0, -size / 2],
-  });
-}
-
-// Synchronous emoji icon for structures
-function createStructureIcon(structType) {
-  const map = STRUCTURE_SPRITE_MAP[structType] || { emoji: '🏗️' };
-  return L.divIcon({
-    html: `<div style="font-size:20px;text-shadow:0 0 6px rgba(0,0,0,0.9);">${map.emoji}</div>`,
+    html: `<div style="font-size:20px;text-shadow:0 0 6px rgba(0,0,0,0.9);">${emoji}</div>`,
     className: '',
     iconSize: [28, 28],
-    iconAnchor: [14, 14]
+    iconAnchor: [14, 14],
+  });
+}
+
+// ── Leaflet marker built from a map_movement sprite ────────
+function createMapSpriteIcon(spriteName, size) {
+  size = size || 26;
+  const url = mapIconUrl(spriteName, size * 2);
+  if (!url) return null;
+  return L.divIcon({
+    html: `<img src="${url}" width="${size}" height="${size}" style="display:block;filter:drop-shadow(0 1px 3px rgba(0,0,0,.8))">`,
+    className: '',
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
   });
 }
 

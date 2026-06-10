@@ -1,28 +1,99 @@
 // ═══════════════════════════════════════════════════════════
-//  units.js — Unit definitions, movement, combat
+//  units.js — Unit catalog (all sprite sheets), movement, combat
 // ═══════════════════════════════════════════════════════════
 
-// ── Unit definitions ───────────────────────────────────────
-const UNIT_DEFS = {
-  // GROUND
-  infantry:        { label: 'Infantaria',         atk: 1,   def: 1.5, speed: 20,   energyCap: 100, range: 500,  tier: 1, domain: 'ground', cost: 50,  manpower: 10, emoji: '🪖' },
-  motorized:       { label: 'Motorizado',          atk: 1.5, def: 1,   speed: 60,   energyCap: 120, range: 800,  tier: 1, domain: 'ground', cost: 80,  manpower: 8,  emoji: '🚗' },
-  veh_light:       { label: 'Veículo Leve',        atk: 2,   def: 2,   speed: 80,   energyCap: 150, range: 600,  tier: 2, domain: 'ground', cost: 150, manpower: 5,  emoji: '🚙' },
-  veh_medium:      { label: 'Veículo Médio',       atk: 3,   def: 2.5, speed: 50,   energyCap: 180, range: 500,  tier: 2, domain: 'ground', cost: 220, manpower: 5,  emoji: '🚛' },
-  tank_elite:      { label: 'Tanque de Elite',     atk: 5,   def: 4,   speed: 40,   energyCap: 200, range: 400,  tier: 3, domain: 'ground', cost: 500, manpower: 3,  emoji: '🔫' },
-  artillery:       { label: 'Artilharia',          atk: 4,   def: 1,   speed: 30,   energyCap: 160, range: 300,  tier: 2, domain: 'ground', cost: 280, manpower: 4,  emoji: '💣', attackRange: 80 },
-  // AIR
-  air3_drone:      { label: 'Drone',               atk: 2,   def: 0.5, speed: 200,  energyCap: 80,  range: 1500, tier: 1, domain: 'air',    cost: 120, manpower: 1,  emoji: '🚁' },
-  air2_fighter:    { label: 'Caça',                atk: 4,   def: 1,   speed: 800,  energyCap: 120, range: 2000, tier: 2, domain: 'air',    cost: 350, manpower: 1,  emoji: '✈️' },
-  air2_helicopter: { label: 'Helicóptero',         atk: 3,   def: 1.5, speed: 300,  energyCap: 100, range: 600,  tier: 2, domain: 'air',    cost: 250, manpower: 2,  emoji: '🚁' },
-  air1_stealth:    { label: 'Caça Stealth',        atk: 6,   def: 1,   speed: 1200, energyCap: 150, range: 5000, tier: 3, domain: 'air',    cost: 800, manpower: 1,  emoji: '🛩️' },
-  air_transport:   { label: 'Transporte Aéreo',    atk: 0,   def: 0.5, speed: 500,  energyCap: 200, range: 8000, tier: 1, domain: 'air',    cost: 200, manpower: 3,  emoji: '🛫' },
-  // NAVAL
-  nav3_patrol:     { label: 'Patrulha Naval',      atk: 1,   def: 1,   speed: 40,   energyCap: 100, range: 2000, tier: 1, domain: 'naval',  cost: 130, manpower: 5,  emoji: '⛵' },
-  nav2_frigate:    { label: 'Fragata',             atk: 3,   def: 3,   speed: 30,   energyCap: 200, range: 5000, tier: 2, domain: 'naval',  cost: 400, manpower: 20, emoji: '🚢' },
-  nav1_destroyer:  { label: 'Destróier',           atk: 5,   def: 4,   speed: 35,   energyCap: 300, range: 8000, tier: 3, domain: 'naval',  cost: 700, manpower: 30, emoji: '🛳️' },
-  nav1_carrier:    { label: 'Porta-Aviões',        atk: 2,   def: 5,   speed: 25,   energyCap: 500, range: 99999,tier: 3, domain: 'naval',  cost: 2000,manpower: 80, emoji: '⚓' },
+// ── Catalog generation ─────────────────────────────────────
+// Every sprite from the combat/support sheets becomes a recruitable
+// unit. Stats derive from the category base + per-sprite variance.
+
+const UNIT_CATEGORIES = {
+  infantaria:  { label: 'INFANTARIA',        sheet: 'sheet_soldiers.png',         domain: 'ground', tier: 1, emoji: '🪖', base: { atk: 1.2, def: 1.6, speed: 20,   energyCap: 100, range: 500,  cost: 60,   manpower: 10 } },
+  veic_leve:   { label: 'VEÍCULOS LEVES',    sheet: 'sheet_vehicles_light.png',   domain: 'ground', tier: 2, emoji: '🚙', base: { atk: 2,   def: 2,   speed: 80,   energyCap: 150, range: 650,  cost: 150,  manpower: 5  } },
+  veic_medio:  { label: 'VEÍCULOS MÉDIOS',   sheet: 'sheet_vehicles_medium.png',  domain: 'ground', tier: 2, emoji: '🚛', base: { atk: 3.2, def: 2.6, speed: 55,   energyCap: 180, range: 550,  cost: 240,  manpower: 5  } },
+  tanques:     { label: 'TANQUES',           sheet: 'sheet_tanks_level1.png',     domain: 'ground', tier: 3, emoji: '🛡️', base: { atk: 5,   def: 4.2, speed: 42,   energyCap: 200, range: 420,  cost: 520,  manpower: 4  } },
+  apoio_terra: { label: 'APOIO TERRESTRE',   sheet: 'sheet_ground_support.png',   domain: 'ground', tier: 2, emoji: '📡', base: { atk: 0.8, def: 2.2, speed: 45,   energyCap: 170, range: 600,  cost: 210,  manpower: 6  } },
+  caca_elite:  { label: 'CAÇAS DE ELITE',    sheet: 'sheet_air_level1.png',       domain: 'air',    tier: 3, emoji: '🛩️', base: { atk: 6,   def: 1.2, speed: 1200, energyCap: 150, range: 4500, cost: 850,  manpower: 1  } },
+  aeronaves:   { label: 'AERONAVES',         sheet: 'sheet_air_level2.png',       domain: 'air',    tier: 2, emoji: '✈️', base: { atk: 4,   def: 1.2, speed: 800,  energyCap: 130, range: 2200, cost: 380,  manpower: 1  } },
+  drones:      { label: 'DRONES & TREINO',   sheet: 'sheet_air_level3.png',       domain: 'air',    tier: 1, emoji: '🚁', base: { atk: 2,   def: 0.7, speed: 280,  energyCap: 90,  range: 1600, cost: 140,  manpower: 1  } },
+  apoio_aereo: { label: 'APOIO AÉREO',       sheet: 'sheet_air_support.png',      domain: 'air',    tier: 2, emoji: '🛫', base: { atk: 0.6, def: 1,   speed: 550,  energyCap: 220, range: 7000, cost: 260,  manpower: 3  } },
+  nav_capital: { label: 'NAVIOS CAPITAIS',   sheet: 'sheet_naval_level1.png',     domain: 'naval',  tier: 3, emoji: '🛳️', base: { atk: 5.5, def: 4.6, speed: 32,   energyCap: 350, range: 9000, cost: 950,  manpower: 35 } },
+  nav_escolta: { label: 'CRUZADORES & FRAGATAS', sheet: 'sheet_naval_level2.png', domain: 'naval',  tier: 2, emoji: '🚢', base: { atk: 3.4, def: 3.2, speed: 32,   energyCap: 220, range: 5500, cost: 430,  manpower: 20 } },
+  nav_patrulha:{ label: 'PATRULHA COSTEIRA', sheet: 'sheet_naval_level3.png',     domain: 'naval',  tier: 1, emoji: '⛵', base: { atk: 1.4, def: 1.2, speed: 45,   energyCap: 110, range: 2200, cost: 140,  manpower: 6  } },
+  apoio_naval: { label: 'APOIO NAVAL',       sheet: 'sheet_naval_support.png',    domain: 'naval',  tier: 1, emoji: '⚓', base: { atk: 0.5, def: 1.6, speed: 26,   energyCap: 260, range: 6000, cost: 200,  manpower: 12 } },
 };
+
+// Pretty label from sprite name: 'air1_f35_lightning' → 'F35 Lightning'
+function _spritePrettyName(spriteName) {
+  return spriteName
+    .replace(/^[a-z]+\d*_/, '')
+    .split('_')
+    .map(w => (/\d/.test(w) || w.length <= 2) ? w.toUpperCase() : w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ');
+}
+
+// Deterministic 0..1 hash from a string (per-sprite stat variance)
+function _nameHash(s) {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0;
+  return (Math.abs(h) % 1000) / 1000;
+}
+
+const UNIT_DEFS = {};            // spriteName → def (full catalog)
+const UNIT_CATALOG_BY_CAT = {};  // catKey → [spriteName, ...]
+
+function buildUnitCatalog() {
+  if (!_spriteCoords || !_spriteCoords.sheets) return;
+  Object.entries(UNIT_CATEGORIES).forEach(([catKey, cat]) => {
+    const sheet = _spriteCoords.sheets[cat.sheet];
+    if (!sheet || !sheet.sprites) return;
+    UNIT_CATALOG_BY_CAT[catKey] = [];
+    Object.keys(sheet.sprites).forEach((spriteName, idx) => {
+      const v = _nameHash(spriteName);          // 0..1 variance
+      const m = 0.85 + v * 0.45;                // 0.85..1.3 multiplier
+      const b = cat.base;
+      UNIT_DEFS[spriteName] = {
+        label:     _spritePrettyName(spriteName),
+        cat:       catKey,
+        catLabel:  cat.label,
+        sheet:     cat.sheet,
+        sprite:    spriteName,
+        domain:    cat.domain,
+        tier:      cat.tier,
+        emoji:     cat.emoji,
+        atk:       Math.round(b.atk * m * 10) / 10,
+        def:       Math.round(b.def * (1.15 - v * 0.3) * 10) / 10,
+        speed:     Math.round(b.speed * (0.9 + v * 0.25)),
+        energyCap: Math.round(b.energyCap * (0.9 + v * 0.3)),
+        range:     Math.round(b.range * (0.85 + v * 0.4)),
+        cost:      Math.round(b.cost * (1 + idx * 0.07) * m),
+        manpower:  Math.max(1, Math.round(b.manpower * (0.85 + v * 0.3))),
+      };
+      UNIT_CATALOG_BY_CAT[catKey].push(spriteName);
+    });
+  });
+
+  // Legacy save compatibility: old type keys alias to catalog entries
+  const LEGACY = {
+    infantry:        'sol_infantry_soldier',
+    motorized:       'veh1_humvee_hmmwv',
+    veh_light:       'veh1_humvee_hmmwv',
+    veh_medium:      'veh2_bradley_m2',
+    tank_elite:      'tank1_m1a2_abrams',
+    artillery:       'tank1_pzh2000_howitzer',
+    air3_drone:      'air3_mq9_reaper',
+    air2_fighter:    'air2_f16_falcon',
+    air2_helicopter: 'air2_apache_ah64',
+    air1_stealth:    'air1_f35_lightning',
+    air_transport:   'airsup_c17_globemaster',
+    nav3_patrol:     'nav3_lcs_freedom',
+    nav2_frigate:    'nav2_ticonderoga_cruiser',
+    nav1_destroyer:  'nav1_arleigh_burke',
+    nav1_carrier:    'nav1_gerald_ford_carrier',
+  };
+  Object.entries(LEGACY).forEach(([oldKey, newKey]) => {
+    if (UNIT_DEFS[newKey] && !UNIT_DEFS[oldKey]) UNIT_DEFS[oldKey] = UNIT_DEFS[newKey];
+  });
+}
 
 // Terrain speed multipliers
 const TERRAIN_SPEED = { road: 1.0, plain: 0.7, mountain: 0.4, sea: 0.0, air: 1.0 };
@@ -51,6 +122,7 @@ function createUnit(type, country, lat, lng, squadSize = 1) {
     squadSize: Math.max(1, Math.min(10, squadSize)),
     name:      _generateUnitName(type),
     waypoints: [],
+    stance:    'hold',   // hold | patrol | flank | retreat
     inCombat:  false,
     resting:   false,
   };
@@ -101,7 +173,7 @@ function moveUnit(unit, destLat, destLng) {
   unit.lat = destLat;
   unit.lng = destLng;
   unit.resting = unit.energy <= 5;
-  return { ok: true };
+  return { ok: true, dist: check.dist };
 }
 
 // ── Energy recovery ────────────────────────────────────────
@@ -115,20 +187,22 @@ function recoverEnergy(unit, locationType) {
 
 // ── Combat ─────────────────────────────────────────────────
 function resolveCombat(attackers, defenders) {
-  // attackers / defenders: arrays of unit objects
-  const atkForce = attackers.reduce((sum, u) => {
-    const def = UNIT_DEFS[u.type];
-    const lvlBonus = 1 + (u.level - 1) * 0.1;
-    const energyFactor = Math.max(0.3, u.energy / u.energyCap);
-    return sum + def.atk * lvlBonus * energyFactor * u.squadSize;
-  }, 0);
+  const gs = window.GS;
+  const arsenalBonus = (gs && typeof arsenalAtkBonus === 'function') ? arsenalAtkBonus(gs) : 0;
 
-  const defForce = defenders.reduce((sum, u) => {
+  const _force = (u, useAtk) => {
     const def = UNIT_DEFS[u.type];
+    if (!def) return 0;
     const lvlBonus = 1 + (u.level - 1) * 0.1;
     const energyFactor = Math.max(0.3, u.energy / u.energyCap);
-    return sum + def.def * lvlBonus * energyFactor * 1.1 * u.squadSize; // defender bonus
-  }, 0);
+    const isPlayer = gs && u.country === gs.player_country;
+    const wpn = isPlayer ? 1 + arsenalBonus : 1;
+    const stat = useAtk ? def.atk : def.def * 1.1; // defender bonus
+    return stat * lvlBonus * energyFactor * u.squadSize * wpn;
+  };
+
+  const atkForce = attackers.reduce((sum, u) => sum + _force(u, true), 0);
+  const defForce = defenders.reduce((sum, u) => sum + _force(u, false), 0);
 
   const ratio = defForce === 0 ? 99 : atkForce / defForce;
 

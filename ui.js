@@ -1,10 +1,11 @@
 // ═══════════════════════════════════════════════════════════
-//  ui.js — Header, panels, modals, notifications
+//  ui.js — HUD, panels, modals, notifications (sprite-driven)
 // ═══════════════════════════════════════════════════════════
 
 let _activeTab = 'info';
 let _notifTimer = null;
 let _panelOpen  = false;
+let _recruitCat = 'infantaria';
 
 // ── Boot UI ────────────────────────────────────────────────
 function showGameUI() {
@@ -17,7 +18,17 @@ function showGameUI() {
     btn.addEventListener('click', () => switchTab(btn.dataset.tab));
   });
   document.getElementById('btn-end-turn').addEventListener('click', doEndTurn);
+  _hydrateHudIcons();
   togglePanel(); // open panel by default
+}
+
+// Fill the static HUD <img data-sprite="sheet:name"> slots
+function _hydrateHudIcons() {
+  document.querySelectorAll('img[data-sprite]').forEach(img => {
+    const [sheet, name] = img.dataset.sprite.split(':');
+    const url = spriteDataUrl(sheet, name, 48, 'square');
+    if (url) { img.src = url; img.style.visibility = 'visible'; }
+  });
 }
 
 function setLoadingMsg(msg) {
@@ -101,10 +112,10 @@ function renderInfoPanel(state) {
   const diploButtons = !isPlayer ? `
     <div class="panel-section">
       <div class="panel-title">AÇÕES DIPLOMÁTICAS</div>
-      <button class="btn btn-danger btn-sm" onclick="uiDeclareWar('${country}')">DECLARAR GUERRA</button>
-      <button class="btn btn-success btn-sm" onclick="uiProposePeace('${country}')">PROPOR PAZ</button>
-      <button class="btn btn-sm" onclick="uiProposeAlliance('${country}')">PROPOR ALIANÇA</button>
-      <button class="btn btn-sm" onclick="uiSetEmbargo('${country}')">EMBARGO ECONÔMICO</button>
+      <button class="btn btn-danger btn-sm" onclick="uiDeclareWar('${country}')">${eventImg('evt_war_explosion', 16)} DECLARAR GUERRA</button>
+      <button class="btn btn-success btn-sm" onclick="uiProposePeace('${country}')">${eventImg('evt_peace_handshake', 16)} PROPOR PAZ</button>
+      <button class="btn btn-sm" onclick="uiProposeAlliance('${country}')">${eventImg('evt_alliance_flag', 16)} PROPOR ALIANÇA</button>
+      <button class="btn btn-sm" onclick="uiSetEmbargo('${country}')">${eventImg('evt_econ_crisis', 16)} EMBARGO</button>
     </div>` : '';
 
   const myStats = isPlayer ? `
@@ -114,6 +125,37 @@ function renderInfoPanel(state) {
     <div class="sat-bar"><div class="sat-fill" style="width:${Math.round(state.satisfaction || 50)}%;background:${(state.satisfaction||50) < 30 ? 'var(--red)' : (state.satisfaction||50) > 65 ? 'var(--green)' : 'var(--orange)'}"></div></div>
     <div class="panel-row"><span class="panel-label">Em guerra</span><span class="panel-value ${(state.at_war_with||[]).length ? 'red' : ''}">${(state.at_war_with||[]).length} frentes</span></div>
     <div class="panel-row"><span class="panel-label">Aliados</span><span class="panel-value green">${(state.allies||[]).length}</span></div>` : '';
+
+  // Field manual legend — map movement sprites
+  const LEGEND = [
+    ['map_arrow_move',      'Ordem de movimento'],
+    ['map_arrow_curve',     'Manobra de contorno'],
+    ['map_path_dotted',     'Rota planejada'],
+    ['map_waypoint_diamond','Ponto de destino'],
+    ['map_patrol_route',    'Patrulha'],
+    ['map_flank_zigzag',    'Flanqueamento'],
+    ['map_retreat_dash',    'Recuo tático'],
+    ['map_rotate_arrow',    'Reagrupar'],
+    ['map_stop_x',          'Manter posição'],
+    ['map_select_green',    'Unidade selecionada'],
+    ['map_alert_orange',    'Em combate'],
+    ['map_flag_blue',       'Capital / QG'],
+    ['map_crosshair',       'Posicionamento'],
+    ['map_area_effect',     'Zona de efeito'],
+    ['map_front_line',      'Linha de frente'],
+    ['map_grid_select',     'Seleção de área'],
+  ];
+  const legendHtml = `
+    <div class="panel-section">
+      <div class="panel-title">MANUAL DE CAMPO</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 8px">
+        ${LEGEND.map(([sp, lbl]) => `
+          <div style="display:flex;align-items:center;gap:6px">
+            ${spriteImg('sheet_map_movement.png', sp, 18)}
+            <span style="font-size:0.6rem;color:var(--muted)">${lbl}</span>
+          </div>`).join('')}
+      </div>
+    </div>`;
 
   return `
     <div class="panel-section">
@@ -131,7 +173,8 @@ function renderInfoPanel(state) {
     ${diploButtons}
     <div class="panel-section">
       <button class="btn btn-sm" onclick="flyToCountry('${country}')">IR PARA ${country.toUpperCase()}</button>
-    </div>`;
+    </div>
+    ${isPlayer ? legendHtml : ''}`;
 }
 
 // ── MILITARY PANEL ─────────────────────────────────────────
@@ -152,7 +195,7 @@ function renderMilitaryPanel(state) {
     return `
     <div class="unit-card${sel ? ' selected' : ''}" onclick="openUnitDetail('${u.id}')">
       <div style="display:flex;gap:8px;align-items:flex-start;">
-        <div style="flex-shrink:0">${_unitImgHtml(u.type, 44)}</div>
+        <div style="flex-shrink:0">${unitImg(u.type, 46)}</div>
         <div style="flex:1;min-width:0">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px">
             <span class="unit-name">${u.name}</span>
@@ -176,7 +219,7 @@ function renderMilitaryPanel(state) {
       ${enemy.slice(0, 5).map(u => {
         const def = UNIT_DEFS[u.type] || {};
         return `<div class="unit-card" style="padding:6px 8px;display:flex;gap:7px;align-items:center">
-          ${_unitImgHtml(u.type, 30)}
+          ${unitImg(u.type, 30)}
           <div>
             <div class="unit-name" style="font-size:0.65rem">${u.name}</div>
             <div style="font-size:0.6rem;color:var(--red)">${u.country} · ${def.label}</div>
@@ -186,6 +229,25 @@ function renderMilitaryPanel(state) {
       ${enemy.length > 5 ? `<div style="font-size:0.66rem;color:var(--muted);text-align:center;padding:4px">+${enemy.length-5} mais...</div>` : ''}
     </div>` : '';
 
+  // Arsenal — weapons stockpile (sheet_weapons.png)
+  const arsenal = state.arsenal || {};
+  const bonus = Math.round(arsenalAtkBonus(state) * 100);
+  const arsenalHtml = `
+    <div class="panel-section">
+      <div class="panel-title">ARSENAL ${bonus ? `<span style="color:var(--green);font-size:0.6rem">+${bonus}% ATK</span>` : ''}</div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:5px">
+        ${Object.entries(WEAPON_DEFS).map(([k, def]) => {
+          const qty = arsenal[k] || 0;
+          const ok  = state.resources.money >= def.cost;
+          return `<div class="arsenal-item${qty ? ' owned' : ''}${ok ? '' : ' locked'}" onclick="${ok ? `uiBuyWeapon('${k}')` : ''}" title="${def.label} — ${def.desc} — $${def.cost}">
+            ${spriteImg('sheet_weapons.png', k, 36)}
+            ${qty ? `<span class="arsenal-qty">×${qty}</span>` : `<span class="arsenal-cost">$${fmtNum(def.cost)}</span>`}
+          </div>`;
+        }).join('')}
+      </div>
+      <div style="font-size:0.58rem;color:var(--muted);margin-top:5px">Cada arma dá bônus passivo de ataque (até ×3 do mesmo tipo).</div>
+    </div>`;
+
   return `
     <div class="panel-section">
       <div class="panel-title">SUAS FORÇAS (${mine.length})</div>
@@ -193,6 +255,7 @@ function renderMilitaryPanel(state) {
       <button class="btn btn-success btn-sm" onclick="openRecruitModal()">+ RECRUTAR UNIDADE</button>
       ${mine.length === 0 ? '<p style="color:var(--muted);font-size:0.74rem;margin-top:8px">Nenhuma unidade. Recrute suas primeiras forças.</p>' : unitCards}
     </div>
+    ${arsenalHtml}
     ${enemyList}`;
 }
 
@@ -200,11 +263,6 @@ function renderMilitaryPanel(state) {
 function renderBuildPanel(state) {
   const inProgress = (state.structures || []).filter(s => !s.complete);
   const complete   = (state.structures || []).filter(s =>  s.complete);
-  const categories = {
-    MILITAR: ['mil_barracks','mil_airbase','mil_naval_base','mil_radar_station','mil_missile_silo','mil_nuclear_bunker'],
-    SUPORTE: ['sup_fob_supply','sup_logistics_hub','mil_field_hospital'],
-    CIVIL:   ['civ_hospital','civ_power_plant','civ_seaport','civ_airport'],
-  };
 
   let html = '';
   if (inProgress.length) {
@@ -212,39 +270,53 @@ function renderBuildPanel(state) {
     inProgress.forEach(s => {
       const def = STRUCTURE_DEFS[s.type] || { turns: 1 };
       const pct = Math.round((1 - s.turnsLeft / def.turns) * 100);
-      html += `<div class="unit-card" style="padding:6px 8px">
-        <div style="display:flex;justify-content:space-between;align-items:center">
-          <span style="font-size:0.74rem">${s.emoji || ''} ${s.label}</span>
-          <span style="font-size:0.66rem;color:var(--orange)">${s.turnsLeft} turnos</span>
-        </div>
-        <div class="bar-row" style="margin-top:3px">
-          <div class="bar-track" style="height:4px"><div class="bar-fill" style="width:${pct}%;background:var(--orange)"></div></div>
+      html += `<div class="unit-card" style="padding:6px 8px;display:flex;gap:8px;align-items:center">
+        ${def.sheet ? spriteImg(def.sheet, s.type, 32) : ''}
+        <div style="flex:1">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <span style="font-size:0.72rem">${s.label}</span>
+            <span style="font-size:0.64rem;color:var(--orange)">${s.turnsLeft} turnos</span>
+          </div>
+          <div class="bar-track" style="height:4px;margin-top:4px"><div class="bar-fill" style="width:${pct}%;background:var(--orange)"></div></div>
         </div>
       </div>`;
     });
     html += `</div>`;
   }
 
-  Object.entries(categories).forEach(([cat, types]) => {
-    html += `<div class="panel-section"><div class="panel-title">${cat}</div>`;
+  Object.entries(STRUCTURE_CATEGORIES).forEach(([cat, types]) => {
+    html += `<div class="panel-section"><div class="panel-title">${cat} (${types.length})</div><div class="build-grid">`;
     types.forEach(type => {
       const def = STRUCTURE_DEFS[type];
       if (!def) return;
       const owned = (state.structures || []).filter(s => s.type === type).length;
       const ok    = state.resources.money >= def.cost;
-      html += `<button class="btn btn-sm" ${!ok ? 'disabled' : ''} onclick="uiStartBuild('${type}')">
-        <span style="float:left">${def.emoji || ''} ${def.label}${owned ? ` <span style='color:var(--gold)'>(×${owned})</span>` : ''}</span>
-        <span style="float:right;color:${ok ? 'var(--gold)' : 'var(--red)'}">$${def.cost}</span>
-        <span style="clear:both;display:block;font-size:0.58rem;color:var(--muted);font-family:'Rajdhani',sans-serif">${def.effect} · ${def.turns} turnos</span>
-      </button>`;
+      html += `<div class="build-card${ok ? '' : ' locked'}" onclick="${ok ? `uiStartBuild('${type}')` : ''}" title="${def.effect}">
+        ${spriteImg(def.sheet, type, 44)}
+        <div class="build-card-name">${def.label}${owned ? ` <span style='color:var(--gold)'>×${owned}</span>` : ''}</div>
+        <div class="build-card-cost" style="color:${ok ? 'var(--gold)' : 'var(--red)'}">$${fmtNum(def.cost)} · ${def.turns}t</div>
+      </div>`;
     });
-    html += `</div>`;
+    html += `</div></div>`;
   });
+
+  // Supplies store (sheet_supplies.png) — instant-use consumables
+  html += `<div class="panel-section"><div class="panel-title">SUPRIMENTOS (USO IMEDIATO)</div><div class="build-grid">`;
+  Object.entries(SUPPLY_DEFS).forEach(([k, def]) => {
+    const ok = state.resources.money >= def.cost;
+    html += `<div class="build-card${ok ? '' : ' locked'}" onclick="${ok ? `uiUseSupply('${k}')` : ''}" title="${def.desc}">
+      ${spriteImg('sheet_supplies.png', k, 44)}
+      <div class="build-card-name">${def.label}</div>
+      <div class="build-card-cost" style="color:${ok ? 'var(--gold)' : 'var(--red)'}">$${fmtNum(def.cost)}</div>
+    </div>`;
+  });
+  html += `</div></div>`;
 
   if (complete.length) {
     html += `<div class="panel-section"><div class="panel-title">CONCLUÍDAS (${complete.length})</div>`;
     complete.forEach(s => {
-      html += `<div class="panel-row"><span class="panel-label">${s.emoji || ''} ${s.label}</span><span class="panel-value green" style="font-size:0.6rem">ATIVA</span></div>`;
+      const def = STRUCTURE_DEFS[s.type] || {};
+      html += `<div class="panel-row" style="align-items:center"><span class="panel-label" style="display:flex;align-items:center;gap:6px">${def.sheet ? spriteImg(def.sheet, s.type, 20) : ''} ${s.label}</span><span class="panel-value green" style="font-size:0.6rem">ATIVA</span></div>`;
     });
     html += `</div>`;
   }
@@ -301,16 +373,16 @@ function renderDiploPanel(state) {
   });
 
   const cfg = [
-    { key:'war',      label:'EM GUERRA' },
-    { key:'alliance', label:'ALIADOS' },
-    { key:'truce',    label:'TRÉGUA' },
-    { key:'embargo',  label:'EMBARGO' },
+    { key:'war',      label:'EM GUERRA', icon:'evt_war_explosion' },
+    { key:'alliance', label:'ALIADOS',   icon:'evt_alliance_flag' },
+    { key:'truce',    label:'TRÉGUA',    icon:'evt_peace_handshake' },
+    { key:'embargo',  label:'EMBARGO',   icon:'evt_econ_crisis' },
   ];
 
   let html = '';
-  cfg.forEach(({ key, label }) => {
+  cfg.forEach(({ key, label, icon }) => {
     if (!groups[key].length) return;
-    html += `<div class="panel-section"><div class="panel-title">${label} (${groups[key].length})</div>`;
+    html += `<div class="panel-section"><div class="panel-title" style="display:flex;align-items:center;gap:6px">${eventImg(icon, 18)} ${label} (${groups[key].length})</div>`;
     groups[key].forEach(name => {
       const base = getCountryBaseData(name);
       html += `<div class="unit-card" style="padding:6px 8px;display:flex;align-items:center;gap:7px;cursor:pointer" onclick="window._selectedCountry='${name}';switchTab('info')">
@@ -325,23 +397,17 @@ function renderDiploPanel(state) {
   return html || '<div class="panel-section"><p style="color:var(--muted);font-size:0.74rem">Sem relações diplomáticas ativas.</p></div>';
 }
 
-// ── LOG PANEL ──────────────────────────────────────────────
+// ── LOG PANEL — with event sprite icons ────────────────────
 function renderLogPanel(state) {
   const log = state.game_log || [];
   if (!log.length) return '<p style="color:var(--muted);font-size:0.74rem">Nenhum evento registrado.</p>';
-  return `<div class="panel-section">${log.slice(0, 60).map(e => `<div class="log-entry">${e}</div>`).join('')}</div>`;
-}
-
-// ── Unit image helper ──────────────────────────────────────
-function _unitImgHtml(unitType, size) {
-  size = size || 40;
-  const dataUrl = typeof getUnitSpriteDataUrl === 'function' ? getUnitSpriteDataUrl(unitType, size) : null;
-  const map     = typeof UNIT_SPRITE_MAP !== 'undefined' ? UNIT_SPRITE_MAP[unitType] : null;
-  const emoji   = map ? (map.emoji || '?') : '?';
-  if (dataUrl) {
-    return `<img src="${dataUrl}" width="${size}" height="${size}" style="border-radius:50%;border:2px solid var(--border);flex-shrink:0;display:block;">`;
-  }
-  return `<div style="width:${size}px;height:${size}px;border-radius:50%;background:#0c1220;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:${Math.round(size*0.42)}px;flex-shrink:0">${emoji}</div>`;
+  return `<div class="panel-section">${log.slice(0, 60).map(e => {
+    const icon = typeof logEventIcon === 'function' ? logEventIcon(e) : null;
+    return `<div class="log-entry" style="display:flex;align-items:flex-start;gap:6px">
+      ${icon ? `<div style="flex-shrink:0;margin-top:1px">${eventImg(icon, 18)}</div>` : ''}
+      <span>${e}</span>
+    </div>`;
+  }).join('')}</div>`;
 }
 
 // ── Formation panel (from map click) ──────────────────────
@@ -376,7 +442,7 @@ function showFormationPanel(fm, state) {
       ${fm.units.slice(0, 10).map(u => {
         const def = UNIT_DEFS[u.type] || {};
         return `<div style="display:flex;align-items:center;gap:6px;padding:4px 0;border-bottom:1px solid var(--border)">
-          ${_unitImgHtml(u.type, 26)}
+          ${unitImg(u.type, 26)}
           <div style="flex:1;min-width:0">
             <div style="font-size:0.68rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${u.name}</div>
             <div style="font-size:0.58rem;color:var(--muted)">${def.label || u.type}</div>
@@ -388,7 +454,11 @@ function showFormationPanel(fm, state) {
     </div>`;
 }
 
-// ── Unit detail modal ──────────────────────────────────────
+function showUnitPanel(unit, state) {
+  openUnitDetail(unit.id);
+}
+
+// ── Unit detail modal — sprite portrait + order buttons ────
 function openUnitDetail(unitId) {
   const state = window.GS;
   if (!state) return;
@@ -399,31 +469,42 @@ function openUnitDetail(unitId) {
 
   _setTxt('unit-detail-title', unit.name);
 
+  // Big sprite portrait
   const photoEl    = document.getElementById('unit-detail-photo');
   const fallbackEl = document.getElementById('unit-detail-photo-fallback');
-  const PHOTOS = {
-    infantry:      'https://upload.wikimedia.org/wikipedia/commons/thumb/b/b6/Soldiers_of_3rd_U.S._Infantry_Regiment.jpg/640px-Soldiers_of_3rd_U.S._Infantry_Regiment.jpg',
-    tank_elite:    'https://upload.wikimedia.org/wikipedia/commons/thumb/4/41/M1A2_Abrams_on_patrol.jpg/640px-M1A2_Abrams_on_patrol.jpg',
-    air2_fighter:  'https://upload.wikimedia.org/wikipedia/commons/thumb/4/47/F-16_Fighting_Falcon_in_flight_%282%29.jpg/640px-F-16_Fighting_Falcon_in_flight_%282%29.jpg',
-    air1_stealth:  'https://upload.wikimedia.org/wikipedia/commons/thumb/f/f9/F-22_Raptor_edit1.jpg/640px-F-22_Raptor_edit1.jpg',
-    nav1_destroyer:'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e3/USS_Arleigh_Burke_%28DDG-51%29.jpg/640px-USS_Arleigh_Burke_%28DDG-51%29.jpg',
-    nav1_carrier:  'https://upload.wikimedia.org/wikipedia/commons/thumb/e/ef/USS_Ronald_Reagan_%28CVN-76%29.jpg/640px-USS_Ronald_Reagan_%28CVN-76%29.jpg',
-  };
-
-  const photo = PHOTOS[unit.type];
-  if (photo) {
-    photoEl.src = photo; photoEl.style.display = 'block';
+  const url = def.sheet ? spriteDataUrl(def.sheet, def.sprite, 360, 'square') : null;
+  if (url) {
+    photoEl.src = url; photoEl.style.display = 'block';
     fallbackEl.style.display = 'none';
   } else {
     photoEl.style.display = 'none';
     fallbackEl.style.display = 'flex';
-    const map = typeof UNIT_SPRITE_MAP !== 'undefined' ? UNIT_SPRITE_MAP[unit.type] : null;
-    fallbackEl.textContent = map ? (map.emoji || '🪖') : '🪖';
+    fallbackEl.textContent = def.emoji || '🪖';
   }
 
   const hpPct = Math.round(unit.hp);
   const enPct = Math.round(unit.energy / unit.energyCap * 100);
   const isOwnUnit = unit.country === state.player_country;
+
+  const ORDERS = [
+    ['map_arrow_move',   'move',    'MOVER'],
+    ['map_patrol_route', 'patrol',  'PATRULHAR'],
+    ['map_flank_zigzag', 'flank',   'FLANQUEAR'],
+    ['map_retreat_dash', 'retreat', 'RECUAR'],
+    ['map_stop_x',       'hold',    'PARAR'],
+  ];
+  const orderButtons = isOwnUnit ? `
+    <div style="margin:10px 0 4px;border-top:1px solid var(--border);padding-top:8px">
+      <div class="panel-title">ORDENS</div>
+      <div style="display:flex;gap:4px">
+        ${ORDERS.map(([sp, stance, lbl]) => `
+          <button class="order-btn${unit.stance === stance ? ' active' : ''}" title="${lbl}"
+            onclick="uiGiveOrder('${unit.id}','${stance}')">
+            ${spriteImg('sheet_map_movement.png', sp, 26)}
+            <span>${lbl}</span>
+          </button>`).join('')}
+      </div>
+    </div>` : '';
 
   document.getElementById('unit-detail-stats').innerHTML = `
     <div style="font-family:'Cinzel',serif;font-size:0.74rem;color:var(--muted);margin-bottom:8px">${unit.country} · ${def.label} · ${levelName(unit.level)}</div>
@@ -434,49 +515,71 @@ function openUnitDetail(unitId) {
       <div class="panel-row"><span class="panel-label">Defesa</span><span class="panel-value">${def.def}</span></div>
       <div class="panel-row"><span class="panel-label">Velocidade</span><span class="panel-value">${def.speed} km/h</span></div>
       <div class="panel-row"><span class="panel-label">Alcance</span><span class="panel-value">${def.range} km</span></div>
-      <div class="panel-row"><span class="panel-label">Domínio</span><span class="panel-value gold">${def.domain}</span></div>
+      <div class="panel-row"><span class="panel-label">Categoria</span><span class="panel-value gold">${def.catLabel || def.domain}</span></div>
       <div class="panel-row"><span class="panel-label">Esquadrão</span><span class="panel-value">×${unit.squadSize}</span></div>
       <div class="panel-row"><span class="panel-label">XP</span><span class="panel-value">${unit.xp}/${XP_THRESHOLDS[unit.level] || '—'}</span></div>
     </div>
+    ${orderButtons}
     ${isOwnUnit ? `
-      <div style="display:flex;gap:6px;margin-top:4px">
-        <button class="btn btn-primary btn-sm" style="margin:0;flex:1" onclick="document.getElementById('unit-detail-modal').classList.remove('visible');uiSelectUnit('${unit.id}')">MOVER</button>
+      <div style="display:flex;gap:6px;margin-top:8px">
+        <button class="btn btn-primary btn-sm" style="margin:0;flex:1" onclick="document.getElementById('unit-detail-modal').classList.remove('visible');uiSelectUnit('${unit.id}')">MOVER NO MAPA</button>
         <button class="btn btn-danger btn-sm" style="margin:0;flex:1" onclick="document.getElementById('unit-detail-modal').classList.remove('visible');uiDisbandUnit('${unit.id}')">DISPENSAR</button>
       </div>` : ''}`;
 
   document.getElementById('unit-detail-modal').classList.add('visible');
 }
 
-// ── Recruit modal ──────────────────────────────────────────
+// ── Recruit modal — full catalog with category tabs ────────
 function openRecruitModal() {
   const state = window.GS;
   if (!state) return;
-  const sections = {
-    'TERRESTRE': ['infantry','motorized','veh_light','veh_medium','tank_elite','artillery'],
-    'AÉREO':     ['air3_drone','air2_fighter','air2_helicopter','air1_stealth','air_transport'],
-    'NAVAL':     ['nav3_patrol','nav2_frigate','nav1_destroyer','nav1_carrier'],
-  };
-  let html = '';
-  Object.entries(sections).forEach(([sec, types]) => {
-    html += `<div class="recruit-section-label">${sec}</div>`;
-    types.forEach(type => {
-      const def = UNIT_DEFS[type];
-      if (!def) return;
-      const ok  = canRecruit(type, state.resources);
-      const map = typeof UNIT_SPRITE_MAP !== 'undefined' ? UNIT_SPRITE_MAP[type] : null;
-      const emoji = map ? (map.emoji || '?') : '?';
-      html += `<div class="recruit-item${ok ? '' : ' disabled'}" onclick="${ok ? `uiRecruit('${type}')` : ''}">
-        <span style="font-size:20px">${emoji}</span>
-        <div class="recruit-item-info">
-          <div class="recruit-item-name">${def.label}</div>
-          <div class="recruit-item-stats">ATK:${def.atk} DEF:${def.def} · ${def.speed}km/h · ${def.domain}</div>
-        </div>
-        <div class="recruit-item-cost">$${def.cost}<small>${def.manpower} MP</small></div>
-      </div>`;
-    });
-  });
-  document.getElementById('recruit-modal-content').innerHTML = html;
+  _renderRecruitCatTabs();
+  _renderRecruitGrid();
   document.getElementById('recruit-modal').classList.add('visible');
+}
+
+function _renderRecruitCatTabs() {
+  const tabsEl = document.getElementById('recruit-cat-tabs');
+  if (!tabsEl) return;
+  tabsEl.innerHTML = Object.entries(UNIT_CATEGORIES).map(([key, cat]) => {
+    const first = (UNIT_CATALOG_BY_CAT[key] || [])[0];
+    return `<button class="recruit-cat-btn${_recruitCat === key ? ' active' : ''}" onclick="switchRecruitCat('${key}')" title="${cat.label}">
+      ${first ? spriteImg(cat.sheet, first, 30) : cat.emoji}
+    </button>`;
+  }).join('');
+}
+
+function switchRecruitCat(key) {
+  _recruitCat = key;
+  _renderRecruitCatTabs();
+  _renderRecruitGrid();
+}
+
+function _renderRecruitGrid() {
+  const state = window.GS;
+  const gridEl = document.getElementById('recruit-modal-content');
+  if (!gridEl || !state) return;
+  const cat   = UNIT_CATEGORIES[_recruitCat];
+  const types = UNIT_CATALOG_BY_CAT[_recruitCat] || [];
+
+  gridEl.innerHTML = `
+    <div class="recruit-section-label">${cat.label} — ${types.length} unidades</div>
+    <div class="recruit-grid">
+      ${types.map(type => {
+        const def = UNIT_DEFS[type];
+        const ok  = canRecruit(type, state.resources);
+        return `<div class="recruit-card${ok ? '' : ' locked'}" onclick="${ok ? `uiRecruit('${type}')` : ''}">
+          <div class="recruit-card-img">${spriteImg(def.sheet, def.sprite, 72)}</div>
+          <div class="recruit-card-name">${def.label}</div>
+          <div class="recruit-card-stats">
+            <span title="Ataque">⚔ ${def.atk}</span>
+            <span title="Defesa">🛡 ${def.def}</span>
+            <span title="Velocidade">➤ ${def.speed}</span>
+          </div>
+          <div class="recruit-card-cost" style="color:${ok ? 'var(--gold)' : 'var(--red)'}">$${fmtNum(def.cost)} · ${def.manpower} MP</div>
+        </div>`;
+      }).join('')}
+    </div>`;
 }
 
 function closeRecruitModal() {
@@ -487,8 +590,26 @@ function closeRecruitModal() {
 async function showCountryModal() {
   document.getElementById('loading-screen').style.display = 'none';
   document.getElementById('country-modal').classList.add('visible');
+  _renderCountryModalHero();
   await initSelectMap();
   populateCountryList('');
+}
+
+// Decorative hero strip on the country modal using unit sprites
+function _renderCountryModalHero() {
+  const el = document.getElementById('country-modal-hero');
+  if (!el) return;
+  const PICKS = [
+    ['sheet_soldiers.png',      'sol_special_forces'],
+    ['sheet_tanks_level1.png',  'tank1_m1a2_abrams'],
+    ['sheet_air_level1.png',    'air1_f22_raptor'],
+    ['sheet_naval_level1.png',  'nav1_gerald_ford_carrier'],
+    ['sheet_air_level2.png',    'air2_apache_ah64'],
+    ['sheet_vehicles_medium.png','veh2_patriot_launcher'],
+  ];
+  el.innerHTML = PICKS.map(([sheet, name]) =>
+    `<div class="hero-chip">${spriteImg(sheet, name, 52)}</div>`
+  ).join('');
 }
 
 function populateCountryList(query) {
@@ -522,11 +643,12 @@ function selectCountryByName(name) {
   if (typeof flyToCountry === 'function') flyToCountry(name);
 }
 
-// ── Notification ───────────────────────────────────────────
+// ── Notification — with event icon support ─────────────────
 function notify(msg, type) {
   const el = document.getElementById('notify');
   if (!el) return;
-  el.textContent = msg;
+  const icon = typeof logEventIcon === 'function' ? logEventIcon(msg) : null;
+  el.innerHTML = icon ? `<span style="display:inline-flex;vertical-align:middle;margin-right:6px">${eventImg(icon, 20)}</span>${msg}` : msg;
   el.className   = `visible ${type || 'info'}`;
   clearTimeout(_notifTimer);
   _notifTimer = setTimeout(() => { el.className = ''; }, 3800);
@@ -571,8 +693,23 @@ function uiDisbandUnit(unitId) {
   window.GS.units = (window.GS.units || []).filter(u => u.id !== unitId);
   renderAll(); saveGame(window.GS); notify('Unidade dispensada.', 'info');
 }
+function uiGiveOrder(unitId, stance) {
+  if (!window.GS) return;
+  const unit = (window.GS.units || []).find(u => u.id === unitId);
+  if (!unit) return;
+  unit.stance = stance;
+  if (stance === 'move') {
+    document.getElementById('unit-detail-modal').classList.remove('visible');
+    uiSelectUnit(unitId);
+    return;
+  }
+  const LBL = { patrol: 'patrulhando', flank: 'flanqueando', retreat: 'recuando', hold: 'mantendo posição' };
+  saveGame(window.GS);
+  openUnitDetail(unitId); // refresh order buttons
+  notify(`${unit.name} ${LBL[stance] || stance}`, 'info');
+}
 
-// ── Build / recruit ────────────────────────────────────────
+// ── Build / recruit / arsenal / supplies ───────────────────
 function uiStartBuild(structType) {
   if (typeof enterBuildMode === 'function') enterBuildMode(structType);
 }
@@ -601,17 +738,25 @@ function uiRecruit(unitType) {
   }
 }
 
+function uiBuyWeapon(type) {
+  if (!window.GS) return;
+  const r = buyWeapon(type, window.GS);
+  if (r.ok) { renderAll(); saveGame(window.GS); notify(`${WEAPON_DEFS[type].label} adicionado ao arsenal!`, 'success'); }
+  else notify(r.reason, 'error');
+}
+
+function uiUseSupply(type) {
+  if (!window.GS) return;
+  const r = useSupply(type, window.GS);
+  if (r.ok) { renderAll(); saveGame(window.GS); notify(r.msg, 'success'); }
+  else notify(r.reason, 'error');
+}
+
 function uiUpgradeMinistry(key) {
   if (!window.GS) return;
-  const state = window.GS;
-  const lvl   = (state.ministries || {})[key] || 1;
-  const cost  = ministryCost(lvl);
-  if (state.resources.money < cost) { notify('Dinheiro insuficiente.', 'error'); return; }
-  if (lvl >= 4) { notify('Ministério já no nível máximo.', 'error'); return; }
-  state.resources.money -= cost;
-  state.ministries[key] = lvl + 1;
-  renderAll(); saveGame(state);
-  notify(`${MINISTRY_DEFS[key].label} → nível ${lvl + 1}!`, 'success');
+  const r = upgradeMinistry(key, window.GS);
+  if (r.ok) { renderAll(); saveGame(window.GS); notify(`${MINISTRY_DEFS[key].label} melhorado!`, 'success'); }
+  else notify(r.reason, 'error');
 }
 
 function uiRecruitInProvince() { openRecruitModal(); }
