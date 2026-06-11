@@ -92,6 +92,7 @@ function renderPanelForTab(tab) {
     case 'info':     el.innerHTML = renderInfoPanel(state);     break;
     case 'military': el.innerHTML = renderMilitaryPanel(state); break;
     case 'build':    el.innerHTML = renderBuildPanel(state);    break;
+    case 'research': el.innerHTML = renderResearchPanel(state); break;
     case 'gov':      el.innerHTML = renderGovPanel(state);      break;
     case 'diplo':    el.innerHTML = renderDiploPanel(state);    break;
     case 'log':      el.innerHTML = renderLogPanel(state);      break;
@@ -322,6 +323,87 @@ function renderBuildPanel(state) {
   }
 
   return html || '<p style="color:var(--muted);font-size:0.74rem">Sem construções.</p>';
+}
+
+// ── RESEARCH PANEL ─────────────────────────────────────────
+function renderResearchPanel(state) {
+  if (typeof RESEARCH_TREE === 'undefined') {
+    return '<p style="color:var(--muted);font-size:0.74rem">Módulo de pesquisa não carregado.</p>';
+  }
+  const research = state.research || {};
+  let html = '';
+
+  Object.entries(RESEARCH_TREE).forEach(([catKey, cat]) => {
+    html += `<div class="panel-section">
+      <div class="panel-title" style="display:flex;align-items:center;gap:8px">
+        ${spriteImg(cat.sheet, cat.icon, 20)} ${cat.label}
+      </div>`;
+
+    Object.entries(cat.lines).forEach(([lineKey, line]) => {
+      const catResearch = research[catKey] || {};
+      const levelDone   = catResearch[lineKey] || 0;
+      const active      = catResearch._active === lineKey;
+      html += `<div style="margin-bottom:10px">
+        <div style="font-size:0.62rem;color:var(--muted);margin-bottom:4px;letter-spacing:1px">${line.label.toUpperCase()}</div>
+        <div style="display:flex;gap:3px;flex-wrap:wrap">`;
+
+      line.levels.forEach((lvl, i) => {
+        const done    = i < levelDone;
+        const current = i === levelDone;
+        const locked  = i > levelDone;
+        const isActive = active && current;
+        const turnsLeft = isActive ? (catResearch._turnsLeft || 0) : null;
+
+        const bg = done    ? 'rgba(58,154,80,0.2)' :
+                   isActive? 'rgba(200,168,75,0.15)' :
+                   locked  ? 'rgba(20,24,30,0.5)' : 'rgba(30,40,55,0.6)';
+        const border = done ? 'var(--green-dim)' : isActive ? 'var(--gold-dim)' : 'var(--border)';
+
+        html += `<div style="flex:1;min-width:60px;padding:5px 4px;background:${bg};border:1px solid ${border};border-radius:4px;text-align:center;cursor:${current && !isActive ? 'pointer' : 'default'}"
+          onclick="${current && !isActive ? `uiStartResearch('${catKey}','${lineKey}')` : ''}"
+          title="${lvl.desc || lvl.name}">
+          ${lvl.sheet ? spriteImg(lvl.sheet, lvl.sprite || lvl.name, 24) : ''}
+          <div style="font-size:0.52rem;color:${done ? 'var(--green)' : isActive ? 'var(--gold)' : locked ? 'var(--muted)' : 'var(--text)'};margin-top:2px;line-height:1.2">${lvl.name}</div>
+          ${done    ? '<div style="font-size:0.5rem;color:var(--green)">✓</div>' : ''}
+          ${isActive? `<div style="font-size:0.5rem;color:var(--gold)">${turnsLeft}t</div>` : ''}
+          ${current && !isActive ? `<div style="font-size:0.5rem;color:var(--gold)">$${lvl.cost}</div>` : ''}
+        </div>`;
+      });
+
+      html += `</div></div>`;
+    });
+    html += `</div>`;
+  });
+
+  return html || '<p style="color:var(--muted)">Nenhuma pesquisa disponível.</p>';
+}
+
+function uiStartResearch(catKey, lineKey) {
+  const state = window.GS;
+  if (!state) return;
+  if (typeof startResearch === 'function') {
+    const result = startResearch(catKey, lineKey, state);
+    if (result && !result.ok) { notify(result.reason, 'error'); return; }
+  } else {
+    // Simple fallback: deduct cost and mark active
+    const cat  = RESEARCH_TREE[catKey];
+    if (!cat) return;
+    const line = cat.lines[lineKey];
+    if (!line) return;
+    const rr = state.research || {};
+    if (!rr[catKey]) rr[catKey] = {};
+    const lvl = rr[catKey][lineKey] || 0;
+    if (lvl >= line.levels.length) return;
+    const level = line.levels[lvl];
+    if (state.resources.money < level.cost) { notify(`Sem fundos (precisa $${level.cost})`, 'error'); return; }
+    state.resources.money -= level.cost;
+    rr[catKey]._active    = lineKey;
+    rr[catKey]._turnsLeft = level.turns;
+    state.research = rr;
+    notify(`Pesquisa iniciada: ${level.name} (${level.turns} turnos)`, 'info');
+  }
+  renderPanelForTab('research');
+  saveGame(state);
 }
 
 // ── GOV PANEL ──────────────────────────────────────────────

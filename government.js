@@ -276,8 +276,32 @@ function processTurn(state) {
   state.game_log.unshift(`[Turno ${state.turn}] Renda: +${income}💰, Despesas: -${expenses}💰`);
   events.forEach(e => state.game_log.unshift(e));
 
+  // Advance active research projects
+  _progressResearch(state, events);
+
   state.turn++;
   return events;
+}
+
+function _progressResearch(state, events) {
+  if (typeof RESEARCH_TREE === 'undefined') return;
+  const research = state.research || {};
+  Object.entries(research).forEach(([catKey, catState]) => {
+    const activeKey = catState._active;
+    if (!activeKey) return;
+    const cat  = RESEARCH_TREE[catKey];
+    const line = cat && cat.lines && cat.lines[activeKey];
+    if (!line) return;
+    const lvl = catState[activeKey] || 0;
+    if (lvl >= line.levels.length) { catState._active = null; return; }
+    catState._turnsLeft = Math.max(0, (catState._turnsLeft || 0) - 1);
+    if (catState._turnsLeft <= 0) {
+      catState[activeKey] = lvl + 1;
+      catState._active    = null;
+      const level = line.levels[lvl];
+      events.push(`[PESQUISA] 🔬 ${level.name} concluída!`);
+    }
+  });
 }
 
 // ── Satisfaction ───────────────────────────────────────────
