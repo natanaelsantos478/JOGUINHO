@@ -98,6 +98,121 @@ function buildUnitCatalog() {
 // Terrain speed multipliers
 const TERRAIN_SPEED = { road: 1.0, plain: 0.7, mountain: 0.4, sea: 0.0, air: 1.0 };
 
+// ── Stances / Ordens táticas ───────────────────────────────
+// Each stance changes speed, combat power and energy drain.
+const STANCE_DEFS = {
+  hold:    { label: 'Manter Posição', icon: 'map_stop_x',        speedMult: 0,   atkMult: 1.0,  defMult: 1.25, energyMult: 1.0, desc: 'Parado e entrincheirado. +25% defesa.' },
+  march:   { label: 'Marchar',        icon: 'map_arrow_move',    speedMult: 1.0, atkMult: 1.0,  defMult: 1.0,  energyMult: 1.0, desc: 'Movimento padrão pelos waypoints.' },
+  forced:  { label: 'Marcha Forçada', icon: 'map_arrow_curve',   speedMult: 1.6, atkMult: 0.85, defMult: 0.7,  energyMult: 2.0, desc: '+60% velocidade, mas -30% defesa e gasta 2× energia.' },
+  patrol:  { label: 'Patrulhar',      icon: 'map_patrol_route',  speedMult: 0.6, atkMult: 1.1,  defMult: 1.1,  energyMult: 0.8, desc: 'Vai e volta entre os waypoints. +10% atk/def.' },
+  flank:   { label: 'Flanquear',      icon: 'map_flank_zigzag',  speedMult: 1.2, atkMult: 1.25, defMult: 0.85, energyMult: 1.3, desc: 'Manobra agressiva. +25% ataque, -15% defesa.' },
+  retreat: { label: 'Recuar',         icon: 'map_retreat_dash',  speedMult: 1.4, atkMult: 0.5,  defMult: 0.9,  energyMult: 1.2, desc: 'Retirada rápida. -50% ataque, +40% velocidade.' },
+  ambush:  { label: 'Emboscada',      icon: 'map_crosshair',     speedMult: 0,   atkMult: 1.4,  defMult: 1.1,  energyMult: 0.5, desc: 'Parado e oculto. +40% ataque no primeiro choque.' },
+};
+
+// Hours of operational movement per turn
+const HOURS_PER_TURN = 6;
+
+// km a unit can cover this turn given stance and level
+function movementBudgetKm(unit) {
+  const st = STANCE_DEFS[unit.stance] || STANCE_DEFS.march;
+  if (st.speedMult === 0) return 0;
+  return getUnitSpeed(unit) * HOURS_PER_TURN * st.speedMult;
+}
+
+// ── Per-turn waypoint movement ──────────────────────────────
+// Units advance along their waypoint queue, limited by speed
+// and energy. Returns log events.
+function processUnitMovement(state) {
+  const events = [];
+  (state.units || []).forEach(u => {
+    if (!u.waypoints || !u.waypoints.length) return;
+    const def = UNIT_DEFS[u.type];
+    if (!def) return;
+    const st = STANCE_DEFS[u.stance] || STANCE_DEFS.march;
+    let budget = movementBudgetKm(u);
+    if (budget <= 0) return;
+
+    const drainPerKm = (1 / def.range) * u.energyCap * st.energyMult;
+
+    while (budget > 0 && u.waypoints.length) {
+      const wp = u.waypoints[0];
+      const d  = haversineKm(u.lat, u.lng, wp.lat, wp.lng);
+      if (d < 1) { _advanceWaypoint(u, events); continue; }
+
+      const maxByEnergy = drainPerKm > 0 ? (u.energy - 5) / drainPerKm : Infinity;
+      const step = Math.min(budget, d, Math.max(0, maxByEnergy));
+      if (step < 0.5) {
+        if (u.energy <= 10) {
+          u.resting = true;
+          events.push(`⚠️ ${u.name} sem energia — descansando em campo`);
+        }
+        break;
+      }
+
+      const f = step / d;
+      u.lat += (wp.lat - u.lat) * f;
+      u.lng += (wp.lng - u.lng) * f;
+      u.energy = Math.max(0, u.energy - step * drainPerKm);
+      budget -= step;
+
+      if (f >= 0.999) _advanceWaypoint(u, events);
+    }
+  });
+  return events;
+}
+
+function _advanceWaypoint(u, events) {
+  const wp = u.waypoints.shift();
+  if (u.stance === 'patrol') {
+    // Patrol loops: completed waypoint goes to the back of the queue
+    u.waypoints.push(wp);
+    if (u.waypoints.length === 1) u.waypoints = []; // single-point patrol = stop
+  } else if (!u.waypoints.length) {
+    events.push(`📍 ${u.name} chegou ao destino`);
+    if (u.stance === 'march' || u.stance === 'forced') u.stance = 'hold';
+  }
+}
+
+// ── Auto-engagement: combat triggers when hostiles are close ─
+const ENGAGE_RANGE_KM = 80;
+
+function processCombatEngagements(state) {
+  const events = [];
+  const hostiles = (state.units || []).filter(u => (state.at_war_with || []).includes(u.country) && u.hp > 0);
+  const friendly = (state.units || []).filter(u => u.country === state.player_country && u.hp > 0);
+  if (!hostiles.length || !friendly.length) {
+    (state.units || []).forEach(u => u.inCombat = false);
+    return events;
+  }
+
+  // Cluster engaged units into battles by proximity
+  const engagedF = new Set(), engagedH = new Set();
+  friendly.forEach(f => hostiles.forEach(h => {
+    if (haversineKm(f.lat, f.lng, h.lat, h.lng) < ENGAGE_RANGE_KM) {
+      engagedF.add(f); engagedH.add(h);
+    }
+  }));
+
+  (state.units || []).forEach(u => u.inCombat = engagedF.has(u) || engagedH.has(u));
+
+  if (engagedF.size) {
+    const atk = [...engagedF], dfd = [...engagedH];
+    const r = resolveCombat(atk, dfd);
+    const lbl = { decisive_victory: '🏆 VITÓRIA DECISIVA', victory: '⚔️ Vitória', stalemate: '🛡️ Impasse', defeat: '💥 Derrota' }[r.result];
+    events.push(`⚔️ Batalha (${atk.length}×${dfd.length} unidades): ${lbl} — razão de força ${r.ratio}`);
+
+    // Remove destroyed units
+    const dead = (state.units || []).filter(u => u.hp <= 0);
+    dead.forEach(u => events.push(`💀 ${u.name} (${u.country}) destruído em combate`));
+    state.units = (state.units || []).filter(u => u.hp > 0);
+
+    // Ambush is single-use: after the first clash the unit reverts to hold
+    atk.forEach(u => { if (u.stance === 'ambush') u.stance = 'hold'; });
+  }
+  return events;
+}
+
 // XP thresholds per level
 const XP_THRESHOLDS = [0, 100, 300, 600, 1000];
 const LEVEL_NAMES   = ['Recruta', 'Elite', 'Veterano', 'Experiente', 'Lendário'];
@@ -197,8 +312,10 @@ function resolveCombat(attackers, defenders) {
     const energyFactor = Math.max(0.3, u.energy / u.energyCap);
     const isPlayer = gs && u.country === gs.player_country;
     const wpn = isPlayer ? 1 + arsenalBonus : 1;
+    const st  = STANCE_DEFS[u.stance] || STANCE_DEFS.march;
+    const stanceMult = useAtk ? st.atkMult : st.defMult;
     const stat = useAtk ? def.atk : def.def * 1.1; // defender bonus
-    return stat * lvlBonus * energyFactor * u.squadSize * wpn;
+    return stat * lvlBonus * energyFactor * u.squadSize * wpn * stanceMult;
   };
 
   const atkForce = attackers.reduce((sum, u) => sum + _force(u, true), 0);

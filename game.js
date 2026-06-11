@@ -240,6 +240,27 @@ async function doEndTurn() {
   btn.textContent = 'PROCESSANDO...';
 
   const state  = window.GS;
+
+  // Legacy pending moves → waypoint queue
+  (state.units || []).forEach(u => {
+    if (u.pendingLat != null) {
+      if (!u.waypoints) u.waypoints = [];
+      u.waypoints.push({ lat: u.pendingLat, lng: u.pendingLng });
+      u.pendingLat = u.pendingLng = null;
+      if (u.stance === 'hold') u.stance = 'march';
+    }
+  });
+
+  // 1. Movement along waypoint routes (speed/energy limited)
+  const moveEvents = processUnitMovement(state);
+  moveEvents.forEach(e => state.game_log.unshift(`[Turno ${state.turn}] ${e}`));
+
+  // 2. Auto-engagement combat when hostiles within range
+  const combatEvents = processCombatEngagements(state);
+  combatEvents.forEach(e => state.game_log.unshift(`[Turno ${state.turn}] ${e}`));
+  if (combatEvents.length) notify(combatEvents[0], 'info');
+
+  // 3. Economy, construction, research, events
   const events = processTurn(state);
 
   const allNames = getAllCountryNames();

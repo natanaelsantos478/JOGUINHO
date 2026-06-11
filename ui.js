@@ -7,6 +7,22 @@ let _notifTimer = null;
 let _panelOpen  = false;
 let _recruitCat = 'infantaria';
 
+// ── Theme (dark/light) ─────────────────────────────────────
+function applyTheme(theme) {
+  document.body.classList.toggle('light', theme === 'light');
+  const btn = document.getElementById('btn-theme-toggle');
+  if (btn) btn.textContent = theme === 'light' ? '☀️' : '🌙';
+  localStorage.setItem('wc_theme', theme);
+}
+
+function toggleTheme() {
+  const current = localStorage.getItem('wc_theme') || 'dark';
+  applyTheme(current === 'light' ? 'dark' : 'light');
+}
+
+// Apply saved theme as soon as ui.js loads
+applyTheme(localStorage.getItem('wc_theme') || 'dark');
+
 // ── Boot UI ────────────────────────────────────────────────
 function showGameUI() {
   document.getElementById('loading-screen').style.display = 'none';
@@ -193,6 +209,13 @@ function renderMilitaryPanel(state) {
     const sel  = window._selectedUnitId === u.id;
     const hpPct = Math.round(u.hp);
     const enPct = Math.round(u.energy / u.energyCap * 100);
+    const sd   = (typeof STANCE_DEFS !== 'undefined' && STANCE_DEFS[u.stance]) || null;
+    const wps  = (u.waypoints || []).length;
+    const statusLine = `<div style="font-size:0.58rem;color:var(--muted);display:flex;align-items:center;gap:5px;margin-top:1px">
+      ${sd ? `${spriteImg('sheet_map_movement.png', sd.icon, 12)} ${sd.label}` : ''}
+      ${wps ? `<span style="color:var(--orange)">· ${wps} waypoint${wps > 1 ? 's' : ''}</span>` : ''}
+      ${u.inCombat ? `<span style="color:var(--red)">· EM COMBATE</span>` : ''}
+    </div>`;
     return `
     <div class="unit-card${sel ? ' selected' : ''}" onclick="openUnitDetail('${u.id}')">
       <div style="display:flex;gap:8px;align-items:flex-start;">
@@ -203,6 +226,7 @@ function renderMilitaryPanel(state) {
             <span class="unit-level">Lv${u.level}</span>
           </div>
           <div class="unit-type-label">${def.label || u.type}</div>
+          ${statusLine}
           <div class="bar-row"><span class="bar-lbl">HP</span><div class="bar-track"><div class="bar-fill hp" style="width:${hpPct}%"></div></div><span style="font-size:0.58rem;color:var(--muted)">${hpPct}%</span></div>
           <div class="bar-row"><span class="bar-lbl">EN</span><div class="bar-track"><div class="bar-fill energy" style="width:${enPct}%"></div></div><span style="font-size:0.58rem;color:var(--muted)">${enPct}%</span></div>
           <div style="margin-top:5px;display:flex;gap:4px" onclick="event.stopPropagation()">
@@ -568,24 +592,26 @@ function openUnitDetail(unitId) {
   const enPct = Math.round(unit.energy / unit.energyCap * 100);
   const isOwnUnit = unit.country === state.player_country;
 
-  const ORDERS = [
-    ['map_arrow_move',   'move',    'MOVER'],
-    ['map_patrol_route', 'patrol',  'PATRULHAR'],
-    ['map_flank_zigzag', 'flank',   'FLANQUEAR'],
-    ['map_retreat_dash', 'retreat', 'RECUAR'],
-    ['map_stop_x',       'hold',    'PARAR'],
-  ];
-  const orderButtons = isOwnUnit ? `
+  const stanceDef = (typeof STANCE_DEFS !== 'undefined' && STANCE_DEFS[unit.stance]) || null;
+  const routeInfo = (unit.waypoints && unit.waypoints.length)
+    ? `<div style="display:flex;align-items:center;justify-content:space-between;margin-top:6px;padding:4px 8px;background:rgba(224,32,48,0.08);border:1px solid rgba(224,32,48,0.3);border-radius:4px">
+        <span style="font-size:0.62rem;color:var(--orange)">Rota: ${unit.waypoints.length} waypoint${unit.waypoints.length > 1 ? 's' : ''} · ${typeof movementBudgetKm === 'function' ? Math.round(movementBudgetKm(unit)) + ' km/turno' : ''}</span>
+        <button class="btn btn-danger btn-sm" style="margin:0;padding:2px 8px;font-size:0.56rem" onclick="clearUnitRoute('${unit.id}')">LIMPAR ROTA</button>
+      </div>` : '';
+
+  const orderButtons = isOwnUnit && typeof STANCE_DEFS !== 'undefined' ? `
     <div style="margin:10px 0 4px;border-top:1px solid var(--border);padding-top:8px">
-      <div class="panel-title">ORDENS</div>
-      <div style="display:flex;gap:4px">
-        ${ORDERS.map(([sp, stance, lbl]) => `
-          <button class="order-btn${unit.stance === stance ? ' active' : ''}" title="${lbl}"
+      <div class="panel-title">ORDENS TÁTICAS</div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px">
+        ${Object.entries(STANCE_DEFS).map(([stance, sd]) => `
+          <button class="order-btn${unit.stance === stance ? ' active' : ''}" title="${sd.desc}"
             onclick="uiGiveOrder('${unit.id}','${stance}')">
-            ${spriteImg('sheet_map_movement.png', sp, 26)}
-            <span>${lbl}</span>
+            ${spriteImg('sheet_map_movement.png', sd.icon, 24)}
+            <span>${sd.label.toUpperCase()}</span>
           </button>`).join('')}
       </div>
+      ${stanceDef ? `<div style="font-size:0.6rem;color:var(--muted);margin-top:5px">${stanceDef.desc}</div>` : ''}
+      ${routeInfo}
     </div>` : '';
 
   document.getElementById('unit-detail-stats').innerHTML = `
@@ -780,15 +806,21 @@ function uiGiveOrder(unitId, stance) {
   const unit = (window.GS.units || []).find(u => u.id === unitId);
   if (!unit) return;
   unit.stance = stance;
-  if (stance === 'move') {
+  const sd = (typeof STANCE_DEFS !== 'undefined') ? STANCE_DEFS[stance] : null;
+  // Stationary stances cancel the route; mobile stances need waypoints to act
+  if (sd && sd.speedMult === 0) {
+    unit.waypoints = [];
+    drawAllPendingRoutes();
+  } else if (!unit.waypoints || !unit.waypoints.length) {
     document.getElementById('unit-detail-modal').classList.remove('visible');
     uiSelectUnit(unitId);
+    notify(`${unit.name} — ${sd ? sd.label : stance}: clique no mapa para traçar a rota`, 'info');
+    saveGame(window.GS);
     return;
   }
-  const LBL = { patrol: 'patrulhando', flank: 'flanqueando', retreat: 'recuando', hold: 'mantendo posição' };
   saveGame(window.GS);
   openUnitDetail(unitId); // refresh order buttons
-  notify(`${unit.name} ${LBL[stance] || stance}`, 'info');
+  notify(`${unit.name} — ${sd ? sd.label : stance}`, 'info');
 }
 
 // ── Build / recruit / arsenal / supplies ───────────────────
@@ -870,5 +902,6 @@ function _getCapitalCoords(country) {
   return CAPITAL_COORDS[country] || { lat: 20, lng: 0 };
 }
 function _getZoom() {
-  return typeof _currentZoom !== 'undefined' ? _currentZoom : 3;
+  const m = (typeof getMap === 'function') ? getMap() : null;
+  return m ? m.getZoom() : 3;
 }

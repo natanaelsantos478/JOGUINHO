@@ -28,8 +28,45 @@
   --bot-h:      44px;
   --panel-w:    324px;
 }
+/* ── TEMA CLARO ── */
+body.light {
+  --bg:         #e8e4da;
+  --bg2:        #dcd6c8;
+  --panel:      rgba(244,240,232,0.97);
+  --border:     #c0b8a4;
+  --border-hi:  #a89c80;
+  --gold:       #8a6d1c;
+  --gold-hi:    #6a5210;
+  --gold-dim:   #b09040;
+  --text:       #2c2820;
+  --muted:      #7a7260;
+  --green:      #2a7a3c;
+  --green-dim:  #4a9a5c;
+  --red:        #a01828;
+  --blue:       #1a4a80;
+  --orange:     #a05810;
+}
+body.light .metal {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.5) 0%, rgba(0,0,0,0.04) 100%),
+    repeating-linear-gradient(135deg, rgba(0,0,0,0.012) 0 2px, transparent 2px 6px),
+    var(--panel);
+}
+body.light .gold-frame {
+  box-shadow:
+    inset 0 0 0 1px rgba(138,109,28,0.12),
+    0 4px 24px rgba(0,0,0,0.18);
+}
+body.light #loading-screen h1,
+body.light #login-screen h1 { text-shadow:0 0 24px rgba(138,109,28,0.2); }
 *,*::before,*::after { box-sizing:border-box; margin:0; padding:0; }
 html,body { width:100%; height:100%; overflow:hidden; background:var(--bg); font-family:'Rajdhani',sans-serif; color:var(--text); }
+#btn-theme-toggle {
+  background:none; border:1px solid var(--border); color:var(--text);
+  width:30px; height:30px; border-radius:4px; cursor:pointer; font-size:0.85rem;
+  display:flex; align-items:center; justify-content:center;
+}
+#btn-theme-toggle:hover { border-color:var(--gold-dim); }
 
 /* Game-style metal panel texture */
 .metal {
@@ -706,6 +743,7 @@ html,body { width:100%; height:100%; overflow:hidden; background:var(--bg); font
   <div id="hud-right">
     <div id="header-turn">TURNO 1</div>
     <div id="save-indicator"></div>
+    <button id="btn-theme-toggle" onclick="toggleTheme()" title="Alternar tema claro/escuro">🌙</button>
     <button id="btn-panel-toggle" onclick="togglePanel()" title="Painel lateral">☰</button>
   </div>
 </div>

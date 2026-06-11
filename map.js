@@ -413,11 +413,12 @@ function renderUnits(state) {
       marker.on('dragend', (e) => {
         const { lat, lng } = e.target.getLatLng();
         e.target.setLatLng(pos); // snap marker back — move is pending
-        unit.pendingLat = lat;
-        unit.pendingLng = lng;
+        if (!unit.waypoints) unit.waypoints = [];
+        unit.waypoints.push({ lat, lng });
+        if (unit.stance === 'hold' || unit.stance === 'ambush') unit.stance = 'march';
         drawAllPendingRoutes();
         renderPanelForTab('military');
-        notify(`${unit.name} — movimento agendado para fim de turno`, 'info');
+        notify(`${unit.name} — waypoint adicionado (executa no fim do turno)`, 'info');
       });
     }
 
@@ -587,13 +588,24 @@ function _handleMapClickForMove(lat, lng) {
   const unit = (window.GS.units || []).find(u => u.id === window._selectedUnitId);
   if (!unit) { window._selectedUnitId = null; return; }
 
-  unit.pendingLat = lat;
-  unit.pendingLng = lng;
+  // Each click appends a waypoint — unit stays selected for route chaining.
+  if (!unit.waypoints) unit.waypoints = [];
+  unit.waypoints.push({ lat, lng });
+  if (unit.stance === 'hold' || unit.stance === 'ambush') unit.stance = 'march';
 
-  // remove old pending route for this unit then redraw all
   drawAllPendingRoutes();
-  notify(`${unit.name} — movimento agendado para fim de turno`, 'info');
-  window._selectedUnitId = null;
+  const budget = (typeof movementBudgetKm === 'function') ? Math.round(movementBudgetKm(unit)) : null;
+  notify(`${unit.name} — waypoint ${unit.waypoints.length} adicionado${budget ? ` (${budget} km/turno)` : ''}. Clique de novo p/ adicionar, ou clique na unidade p/ encerrar.`, 'info');
+  renderPanelForTab('military');
+}
+
+function clearUnitRoute(unitId) {
+  const unit = (window.GS && window.GS.units || []).find(u => u.id === unitId);
+  if (!unit) return;
+  unit.waypoints = [];
+  unit.pendingLat = unit.pendingLng = null;
+  drawAllPendingRoutes();
+  notify(`${unit.name} — rota cancelada`, 'info');
   renderPanelForTab('military');
 }
 
@@ -624,17 +636,40 @@ function _bezierPoints(lat1, lng1, lat2, lng2, segments) {
 }
 
 function drawPendingRoute(unit) {
-  if (!_map || unit.pendingLat == null) return;
-  const pts = _bezierPoints(unit.lat, unit.lng, unit.pendingLat, unit.pendingLng, 20);
-  const line = L.polyline(pts, {
-    color: '#e02030', weight: 2.5, dashArray: '8 5', opacity: 0.92,
-    className: 'pending-route-line',
-  }).addTo(_map);
+  if (!_map) return;
+  const wps = (unit.waypoints && unit.waypoints.length)
+    ? unit.waypoints
+    : (unit.pendingLat != null ? [{ lat: unit.pendingLat, lng: unit.pendingLng }] : []);
+  if (!wps.length) return;
 
-  // Arrowhead — compute angle from last two points
-  const n = pts.length;
-  const dy = pts[n-1][0] - pts[n-2][0];
-  const dx = pts[n-1][1] - pts[n-2][1];
+  const lines = [];
+  let prevLat = unit.lat, prevLng = unit.lng;
+  let lastPts = null;
+
+  wps.forEach((wp, i) => {
+    const pts = _bezierPoints(prevLat, prevLng, wp.lat, wp.lng, 20);
+    lastPts = pts;
+    const line = L.polyline(pts, {
+      color: '#e02030', weight: 2.5, dashArray: '8 5', opacity: 0.92,
+      className: 'pending-route-line',
+    }).addTo(_map);
+    lines.push(line);
+
+    // Diamond marker at intermediate waypoints
+    if (i < wps.length - 1) {
+      const wpIcon = (typeof createMapSpriteIcon === 'function') ? createMapSpriteIcon('map_waypoint_diamond', 18) : null;
+      if (wpIcon) {
+        const m = L.marker([wp.lat, wp.lng], { icon: wpIcon, interactive: false, zIndexOffset: -90 }).addTo(_map);
+        lines.push(m); // cleaned up alongside lines
+      }
+    }
+    prevLat = wp.lat; prevLng = wp.lng;
+  });
+
+  // Arrowhead at the final destination
+  const n = lastPts.length;
+  const dy = lastPts[n-1][0] - lastPts[n-2][0];
+  const dx = lastPts[n-1][1] - lastPts[n-2][1];
   const angle = Math.atan2(dx, dy) * (180 / Math.PI);
   const arrowIcon = L.divIcon({
     className: '',
@@ -642,15 +677,17 @@ function drawPendingRoute(unit) {
     iconSize: [12, 14],
     iconAnchor: [6, 7],
   });
-  const arrowMarker = L.marker([unit.pendingLat, unit.pendingLng], { icon: arrowIcon, interactive: false, zIndexOffset: -100 }).addTo(_map);
-  _pendingRoutes.push({ lines: [line], arrowMarker, unitId: unit.id });
+  const dest = wps[wps.length - 1];
+  const arrowMarker = L.marker([dest.lat, dest.lng], { icon: arrowIcon, interactive: false, zIndexOffset: -100 }).addTo(_map);
+  _pendingRoutes.push({ lines, arrowMarker, unitId: unit.id });
 }
 
 function drawAllPendingRoutes() {
   clearPendingRoutes();
   if (!window.GS) return;
   (window.GS.units || [])
-    .filter(u => u.country === window.GS.player_country && u.pendingLat != null)
+    .filter(u => u.country === window.GS.player_country &&
+      ((u.waypoints && u.waypoints.length) || u.pendingLat != null))
     .forEach(drawPendingRoute);
 }
 
